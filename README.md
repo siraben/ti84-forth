@@ -59,7 +59,7 @@ optional.
 ## Features
 - 16-bit Forth on a 8-bit chip
 - Direct-threaded
-- Programs are lists of 32-bit addresses
+- Programs are lists of 16-bit addresses
 - Takes advantage of system calls such as `_GetKey`, `_PutC` and more
   to come (such as drawing pixels!)
 ## Example Program
