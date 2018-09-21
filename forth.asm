@@ -671,7 +671,7 @@ key_table:
 .db "        " ;; 104-111
 .db "        " ;; 112-119
 .db "        " ;; 120-127
-.db "        " ;; 128-135
+.db " -*     " ;; 128-135
 .db "   ,    " ;; 136-143
 .db "        " ;; 144-151
 .db "  ABCDEF";; 152-159
@@ -796,9 +796,15 @@ stars_prog:
 ;; Type out a message (doesn't store it in data, though, just echoes
 ;; to the screen).
         
-prog:
+type_prog:
         .dw key_ascii, dup, emit
         .dw lit, 0, eql, zbranch, -14, done
+
+prog:
+        .dw key, dup, dup, print_tos, space, emit, cr
+        .dw lit, kEnter, eql
+        .dw zbranch, -22
+        .dw done
         
 return_stack_top  .EQU    AppBackUpScreen+760
 

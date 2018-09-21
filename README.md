@@ -88,7 +88,7 @@ Here's what it does (stack shown in parentheses).
 10. It's that simple!
 
 ### Screenshot
-![Result of running the program](demo.png)
+![Result of running the program](demo2.png)
 
 ## Design Notes
 ### Use of Macros
