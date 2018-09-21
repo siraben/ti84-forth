@@ -369,6 +369,7 @@ run()
         PSP_PUSH(save_sp)
         NEXT
 
+
         defcode("[",1,F_IMMED,lbrac)
         xor a
         ld (var_state), a
@@ -395,9 +396,14 @@ save_sp:
         ld c, l
         NEXT
 
+
         ;; Here are some constants.
         defcode("DOCOL", 5, 0, __docol)
         PSP_PUSH(docol)
+        NEXT
+
+        defcode("BUF", 5, 0, __buffer)
+        PSP_PUSH(buffer)
         NEXT
 
         defcode("R0", 5, 0, rz)
@@ -568,6 +574,14 @@ cpBCDE:
         jp c, tru
         jp fal
 
+        defcode("RAND",4,0,rand)
+        push bc
+        ld a, r
+        ld c, a
+        ld a, r
+        ld b, a
+        NEXT
+
 ;; Place a truth value on the top of the stack.
 tru:
         ld bc, 1
@@ -654,6 +668,25 @@ str_print:
         pop de
         NEXT
 
+        defcode("TO_ASCII",8,0,to_ascii)
+        ;; First portion is copied from key.
+        push bc
+        push de
+        ld h, 0
+        ld l , c
+        ld de, key_table
+        ;; Add the offset
+        add hl, de
+        ld a, (hl)
+        ld c, a
+        ld b, 0
+        pop de
+        NEXT
+
+
+        
+
+
 key_table:
 .db "     ",$00,"  " ;; 0-7
 .db "        " ;; 8-15
@@ -671,28 +704,22 @@ key_table:
 .db "        " ;; 104-111
 .db "        " ;; 112-119
 .db "        " ;; 120-127
-.db " -*     " ;; 128-135
-.db "   ,    " ;; 136-143
+.db "+-*/^()",193 ;; 128-135
+.db "]  , .  " ;; 136-143
 .db "        " ;; 144-151
 .db "  ABCDEF";; 152-159
 .db "GHIJKLMN";; 160-167
 .db "OPQRSTUV" ;; 168-175
 .db "WXYZ    " ;; 176-183
 .db "        " ;; 184-191
-.db "        " ;; 192-199
-.db "        " ;; 200-207
+.db "       :" ;; 192-199
+.db "  ?\"    " ;; 200-207
 .db "        " ;; 208-215
 .db "        " ;; 216-223
 .db "        " ;; 224-231
-.db "        " ;; 232-239
+.db "    {}  " ;; 232-239
 .db "        " ;; 240-247
 .db "        " ;; 248-255
-
-;; User input
-#define BUFSIZE  48
-buffer   .EQU TextShadow
-buf_ptr  .EQU buffer + BUFSIZE + 1
-
 
 
 ;; Inputs:
@@ -769,7 +796,76 @@ buf_ptr  .EQU buffer + BUFSIZE + 1
         ld a, c
         ld (curCol), a
         NEXT
+
+        ;; Display a null-terminated string starting at the address
+        ;; given to by the TOS.
         
+        defcode("PUTS",4,0,put_str)
+        BC_TO_HL
+        b_call _PutS
+        NEXT
+
+        defcode("PUTLN",4,0,putstrln)
+        BC_TO_HL
+        b_call _PutS
+        b_call _NewLine
+        NEXT
+
+
+;; Skipping spaces, get the next word from the user.
+;; We store the string we got into str_buf.
+;; ( -- )
+#define BUFSIZE  31
+buffer    .EQU TextShadow
+        defcode("WORD",4,0,word)
+        ;; Save IP and TOS.
+        push de
+        push bc
+        
+        ;; We can trash the value of BC now.
+skip_space:
+        b_call _GetKey        ;; Destroys BC DE HL, loads keycode to A.
+        cp kSpace
+        jp z, skip_space
+        
+        cp kEnter
+        jp z, skip_space
+        
+        ;; First non-space character hit.
+        ;; Push the address of where to write to.
+        ld hl, buffer
+        
+        push hl
+
+word_read_loop:
+        ld h, 0
+        ld l, a
+        ld de, key_table
+        add hl, de            ;; Add the offset.
+        ld a, (hl)            ;; Load the actual ASCII character code into the accumulator.
+        b_call _PutC          ;; Give user feedback.
+        pop hl                ;; Pop the address to write to.
+        ld (hl), a
+        
+        inc hl                ;; Increment address.
+
+        push hl               ;; Save it.
+        b_call _GetKey        ;; Read another character.
+        cp kEnter
+        jp z, word_done
+        cp kSpace
+        jp z, word_done
+        jp word_read_loop
+        
+word_done:
+        ;; We still have the address to be written to on the stack.
+        pop hl
+        ld (hl), 0 ;; NUL-terminate the string
+        pop bc     ;; restore IP and TOS
+        pop de
+        NEXT
+
+        ;; That was the longest defcode yet!
 
 you_pressed_msg: .db "You pressed:", 0
 
@@ -793,6 +889,7 @@ stars_prog:
         .dw lit, 10, stars
         .dw done
 
+
 ;; Type out a message (doesn't store it in data, though, just echoes
 ;; to the screen).
         
@@ -800,10 +897,36 @@ type_prog:
         .dw key_ascii, dup, emit
         .dw lit, 0, eql, zbranch, -14, done
 
-prog:
-        .dw key, dup, dup, print_tos, space, emit, cr
+;; Prints out the keycode entered, the character with that code.
+;; Then converts the keycode into an ASCII character with the to_ascii word
+;; Then prints the ASCII code and the character.
+
+;; In summary:
+
+;; <KEYCODE> <EMITTED KEYCODE> <TO_ASCII CONVERTED CHARACTER> <EMITTED CONVERTED NUMBER>
+
+key_prog:
+        .dw key, dup, dup, dup, print_tos, space, emit, space, to_ascii, dup
+        .dw print_tos, space, emit, cr
         .dw lit, kEnter, eql
-        .dw zbranch, -22
+        .dw zbranch, -36
+        .dw done
+
+;; Need this because the string wraps in an ugly way.
+what_name_str: .db "What is your",0
+what_name_str2: .dw "name?",0
+luck_num_str: .db "Your lucky",0
+luck_num_str2: .db "numbers are",0
+hi_str: .db "Hello, ",0
+prog:
+        .dw lit, what_name_str, putstrln
+        .dw lit, what_name_str2, putstrln
+        .dw word, cr
+        .dw lit, hi_str, put_str, space
+        .dw __buffer, putstrln
+        .dw lit, luck_num_str, putstrln
+        .dw lit, luck_num_str2, putstrln
+        .dw rand, print_tos, space, rand, print_tos
         .dw done
         
 return_stack_top  .EQU    AppBackUpScreen+760
