@@ -65,19 +65,27 @@ optional.
 ## Example Program
 ```asm
 prog:
-        .dw key_ascii, dup, emit             ;; Steps 1-3
-        .dw lit, 0, eql, zbranch, -14, done  ;; Steps 4-5
+        .dw key, dup, dup, print_tos, space, emit, cr ;; Steps 1-6
+        .dw lit, kEnter, eql                          ;; Steps 7-8
+        .dw zbranch, -22                              ;; Step 9
+        .dw done                                      ;; Step 10
 ```
 
 Here's what it does (stack shown in parentheses).
-1. Get a key from the user as an ASCII code. (a)
-2. Duplicate it. (a a)
-3. Print the top of the stack (a)
-4. Push the literal 0 onto the stack (a 0), and check if the top two
-   elements are equal.
-5. If they're not equal, `eql` returns `0`, which means we branch back
-   14 bytes (7 instructions of 2 bytes each) to `key_ascii`, otherwise
-   we're done.
+1. Get a key from the user and place at the top of the stack. (a)
+2. Duplicate it twice. (a a a)
+3. Print the value of the top element of the stack (a a)
+4. Print a space (a a)
+5. Print the character that corresponds to the code given by the top
+   element of the stack. (a)
+6. Print a newline (a)
+7. Push the literal `kEnter` on the top of the stack (a b)
+8. Check if the two are equal (i.e. the original entered key was an
+   Enter key), and push the result on the stack (a c)
+9. If the top of the stack is zero (i.e. false), then branch back 22
+   bytes.  There are 11 instructions to be skipped but each
+   instruction takes up 2 bytes.
+10. It's that simple!
 
 ### Screenshot
 ![Result of running the program](demo.png)
