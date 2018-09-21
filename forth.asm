@@ -611,6 +611,8 @@ str_print:
         call str_println
         NEXT
 
+        ;; key emit should output the same character that was input,
+        ;; by the way
         defcode("KEY", 3, 0, key)
         push bc
         push de
@@ -633,11 +635,64 @@ str_print:
         pop bc
         NEXT
 
+        ;; Convert a key code into an ASCII character by way of a
+        ;; lookup table.
+        defcode("KEY_ASCII",9,0,key_ascii)
+        ;; First portion is copied from key.
+        push bc
+        push de
+        b_call _GetKey
+        ;; a contains the byte received.
+        ld h, 0
+        ld l , a
+        ld de, key_table
+        ;; Add the offset
+        add hl, de
+        ld a, (hl)
+        ld c, a
+        ld b, 0
+        pop de
+        NEXT
 
-;; Perhaps replace the string routine with something more Forthy?
+key_table:
+.db "     ",$00,"  " ;; 0-7
+.db "        " ;; 8-15
+.db "        " ;; 16-23
+.db "        " ;; 24-31
+.db "        " ;; 32-39
+.db "        " ;; 40-47
+.db "        " ;; 48-55
+.db "        " ;; 56-63
+.db "        " ;; 64-71
+.db "        " ;; 72-79
+.db "        " ;; 80-87
+.db "        " ;; 88-95
+.db "        " ;; 96-103
+.db "        " ;; 104-111
+.db "        " ;; 112-119
+.db "        " ;; 120-127
+.db "        " ;; 128-135
+.db "   ,    " ;; 136-143
+.db "        " ;; 144-151
+.db "  ABCDEF";; 152-159
+.db "GHIJKLMN";; 160-167
+.db "OPQRSTUV" ;; 168-175
+.db "WXYZ    " ;; 176-183
+.db "        " ;; 184-191
+.db "        " ;; 192-199
+.db "        " ;; 200-207
+.db "        " ;; 208-215
+.db "        " ;; 216-223
+.db "        " ;; 224-231
+.db "        " ;; 232-239
+.db "        " ;; 240-247
+.db "        " ;; 248-255
+
+;; User input
 #define BUFSIZE  48
 buffer   .EQU TextShadow
 buf_ptr  .EQU buffer + BUFSIZE + 1
+
 
 
 ;; Inputs:
@@ -738,12 +793,12 @@ stars_prog:
         .dw lit, 10, stars
         .dw done
 
-;; Explore the mappings of keys.
+;; Type out a message (doesn't store it in data, though, just echoes
+;; to the screen).
+        
 prog:
-        .dw key, dup, dup, print_tos, space, emit, cr
-        .dw lit, kEnter, eql
-        .dw zbranch, -22
-        .dw done
+        .dw key_ascii, dup, emit
+        .dw lit, 0, eql, zbranch, -14, done
         
 return_stack_top  .EQU    AppBackUpScreen+760
 
