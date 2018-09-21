@@ -118,15 +118,15 @@ writing it out manually.
 - [Learn TI-83 Plus Assembly In 28 Days](http://tutorials.eeems.ca/ASMin28Days/welcome.html)
 - [KnightOS Kernel](https://github.com/KnightOS/kernel)
 - [Starting FORTH](https://www.forth.com/starting-forth/)
+- [Jonesforth](http://git.annexia.org/?p=jonesforth.git)
 
 ## To be Implemented
 - [ ] Ability to read/write programs
-- [ ] Split the source into different files!
-- [ ] User input
-  - [ ] String reading routines
+- [x] User input
+  - [x] String reading routines
   - [ ] Number reading routines
-- [ ] Output
-  - [ ] Displaying strings
+- [x] Output
+  - [x] Displaying strings
 - [ ] Proper support for compile/interpret mode
 - [ ] Assembler to convert Forth words into `.dw` data segments to be
 pasted into the program.

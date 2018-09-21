@@ -364,24 +364,12 @@ _:
         BC_TO_DE
         NEXT
 
-;; defvar("foo",3,0,foo,1000)
-;; We want that to expand to:
-;; name_foo:
-;; .dw <pointer to previous>
-;; .db 3
-;; .db "foo",0
-;; foo:
-;; push bc
-;; ld bc, var_foo
-;; NEXT
-;; var_foo:
-;; .dw 1000
 
 ;; Make some variables!
 
 ;; Well since there's only like 6 variables defined in Jonesforth it's
 ;; not forth the effort trying to debug a macro (which took up a lot
-;; of time in this program!)
+;; of time for defword and defcode!)
 
 #define PSP_PUSH(x) push bc \ ld bc, x
 
@@ -570,7 +558,6 @@ cpBCDE:
         ret
 
 
-
 ;; We need this because we want to pop the top of the stack it was indeed 0.
 zbranch_:
         pop bc
@@ -745,7 +732,7 @@ key_table:
 .db "        " ;; 24-31
 .db "        " ;; 32-39
 .db "        " ;; 40-47
-.db "        " ;; 48-55
+.db "   =  ' " ;; 48-55
 .db "        " ;; 56-63
 .db "        " ;; 64-71
 .db "        " ;; 72-79
@@ -756,8 +743,8 @@ key_table:
 .db "        " ;; 112-119
 .db "        " ;; 120-127
 .db "+-*/^()",193 ;; 128-135
-.db "]  , .  " ;; 136-143
-.db "        " ;; 144-151
+.db "]  , .01" ;; 136-143
+.db "23456789" ;; 144-151
 .db "  ABCDEF";; 152-159
 .db "GHIJKLMN";; 160-167
 .db "OPQRSTUV" ;; 168-175
@@ -992,7 +979,7 @@ _strcmp_exit:
 
         ;; Are two strings equal?
         ;; ( s1 s2 -- b )
-        defcode("STREQ",4,0,streq)
+        defcode("STR=",4,0,streql)
         PUSH_DE_RS
         pop de
         BC_TO_HL
@@ -1104,8 +1091,6 @@ key_count_prog:
 
 dummy_byte: .db 0
 
-
-
 write_prog:
         .dw lit, dummy_byte, print_tos
         .dw lit, 10, lit, dummy_byte, store_byte, lit, dummy_byte, fetch_byte, print_tos
@@ -1126,10 +1111,12 @@ type_prog:
 ;; Then converts the keycode into an ASCII character with the to_ascii word
 ;; Then prints the ASCII code and the character.
 
-;; In summary:
-
+;; ...
 ;; <KEYCODE> <EMITTED KEYCODE> <TO_ASCII CONVERTED CHARACTER> <EMITTED CONVERTED NUMBER>
+;; <KEYCODE> <EMITTED KEYCODE> <TO_ASCII CONVERTED CHARACTER> <EMITTED CONVERTED NUMBER>
+;; ...
 
+;; Handy for exploring table lookups and the to_ascii word
 key_prog:
         .dw key, dup, dup, dup, print_tos, space, emit, space, to_ascii, dup
         .dw print_tos, space, emit, cr
@@ -1137,7 +1124,7 @@ key_prog:
         .dw zbranch, -36
         .dw done
 
-;; Need this because the string wraps in an ugly way.
+;; Demonstrate user input and random (?) number generation.
 what_name_str: .db "What is your",0
 what_name_str2: .dw "name?",0
 luck_num_str: .db "Your lucky",0
@@ -1154,11 +1141,12 @@ fun_prog:
         .dw rand, print_tos, space, rand, print_tos
         .dw done
 
+;; Demonstrate word input and string comparsion.
 msg1: .db "SECRET",0
 guess: .db "Guess my secret:",0
 secret_prog:
         .dw lit, guess, putstrln, lit, msg1
-        .dw word, lit, buffer, streq, print_tos
+        .dw word, lit, buffer, streql, print_tos
         .dw done
 cfa_prog:
         .dw latest, fetch, dup, lit, 3, add, putstrln
@@ -1168,20 +1156,32 @@ cfa_prog:
 
 ;; Demonstrate that we can perform searches of the words.
 search_msg: .db "Search: ",0
+is_defined_msg: .db " is defined at memory location ",0
+is_not_defined_msg: .db " is not defined.",0
+the_word_msg: .db "The word ",0
+repeat_msg: .db "Repeat?(Y/N) ",0
+any_key_exit_msg: .db "Press any key to exit...",0
+;; 46 emit = putchar('.')
 prog:
+        .dw cr
         .dw lit, search_msg, putstrln
-        .dw word, lit, buffer, cr, find, dup, print_tos, dup
-        .dw zbranch, 14, to_nfa, space, putstrln, cr, branch, 2, drop
-        .dw done
+        .dw word, lit, buffer, cr, find, dup
+        .dw zbranch, 32, lit, the_word_msg, putstr, dup, to_nfa
+        .dw putstr, lit, is_defined_msg, putstrln, print_tos, lit, 46, emit
+        .dw branch, 22, drop, lit, the_word_msg, putstr, lit, buffer, putstr
+        .dw lit, is_not_defined_msg, putstr, cr
+        .dw lit, repeat_msg, putstr, key, to_ascii, dup, emit, lit, 89, eql, zbranch, 6, branch, -102
+        .dw cr, lit, any_key_exit_msg, putstrln, done
         
 ;; We're going to see if the dictionary was constructed correctly.
+;; Hold the right arrow key to fast forward through this.
 words_prog:
         .dw latest, fetch, dup, lit, 3, add, putstr, space
-        .dw fetch
+        .dw fetch, dup
         .dw zbranch, 22
         .dw dup, lit, 3, add, putstr, space     ;; loop
         .dw key, drop
-        .dw branch, -24
+        .dw branch, -26
         .dw done
 
 setup_data_segment:
@@ -1197,5 +1197,4 @@ setup_data_segment:
         
 return_stack_top  .EQU    AppBackUpScreen+764
 prog_exit: .dw 0
-save_sp:
-        .dw 0
+save_sp:   .dw 0
