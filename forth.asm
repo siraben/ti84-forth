@@ -90,8 +90,11 @@ exit:
 done:
         b_call _GetKey
         b_call _ClrScrnFull
+
+        ;; Even if we blew up the stack during execution, we can try to restore it and exit cleanly.
         ld sp, (save_sp)
-        ret
+        ld hl, (prog_exit)
+        jp (hl)
 
 
 
@@ -189,10 +192,55 @@ _:
         HL_TO_BC
         NEXT
 
+        defcode("ROT",3,0,rot)
+        PUSH_DE_RS
+        pop hl
+        pop de
+        push hl
+        push bc
+        push de
+        POP_DE_RS
+        NEXT
+
+        defcode("-ROT",4,0,nrot)
+        PUSH_DE_RS
+        pop hl
+        pop de
+        push bc
+        push de
+        push hl
+        POP_DE_RS
+        NEXT
 
         defcode("2DROP",5,0,two_drop)
         pop bc
         pop bc
+        NEXT
+
+        defcode("2DUP",5,0,two_dup)
+        pop hl
+        push hl
+        push bc
+        push hl
+        push bc
+        NEXT
+
+        ;; Register contents (return stack contents)
+        ;; a b c d => c d a b
+        defcode("2SWAP",5,0,two_swap)
+        PUSH_DE_RS
+        pop de
+        ;; Now DE = C, BC = D, (old-DE)
+        pop hl
+        PUSH_HL_RS
+        pop hl
+        ;; DE = C, BC = D, HL = A (old-DE B)
+        push de
+        push bc
+        push hl
+        POP_BC_RS
+        ;; c d a, BC = b
+        POP_DE_RS
         NEXT
 
         defcode("1+", 2, 0, one_plus)
@@ -358,7 +406,9 @@ run()
         NEXT
 
         ;; Address of the most recently defined word.
-        cell_alloc(var_latest,0)
+        ;; We have to do a very hacky thing.
+var_latest:
+        .dw name_star
         defcode("LATEST",6,0,latest)
         PSP_PUSH(var_latest)
         NEXT
@@ -366,7 +416,7 @@ run()
         ;; Top (i.e. bottom) of the stack.
         cell_alloc(var_sz,0)
         defcode("S0",2,0,sz)
-        PSP_PUSH(save_sp)
+        PSP_PUSH(var_sz)
         NEXT
 
 
@@ -380,8 +430,6 @@ run()
         ld (var_state), a
         NEXT
         
-save_sp:
-        .dw 0
 
         cell_alloc(var_stack_empty,1)
         defcode("?SE", 3, 0, stack_emptyq)
@@ -402,11 +450,11 @@ save_sp:
         PSP_PUSH(docol)
         NEXT
 
-        defcode("BUF", 5, 0, __buffer)
+        defcode("BUF", 3, 0, __buffer)
         PSP_PUSH(buffer)
         NEXT
 
-        defcode("R0", 5, 0, rz)
+        defcode("R0", 2, 0, rz)
         PSP_PUSH(return_stack_top)
         NEXT
 
@@ -523,18 +571,21 @@ cpBCDE:
 
 
 
+;; We need this because we want to pop the top of the stack it was indeed 0.
+zbranch_:
+        pop bc
+        jp branch
+        
         defcode("ZBRANCH", 7, 0, zbranch)
         ld hl, 0
         call cpHLBC
-        jp z, branch
+        jp z, zbranch_
 
+        ;; The top of the stack wasn't zero.  Skip the offset and resume execution.
+        inc de
+        inc de
 
-        ld a, (de)
-        ld l, a
-        inc de
-        ld a, (de)
-        ld h, a
-        inc de
+        pop bc ;; New top of stack
         
         NEXT
 
@@ -556,7 +607,7 @@ cpBCDE:
         jp z, fal
         jp tru
 
-        defcode(">=", 1,0,greater)
+        defcode(">=", 2,0,greater)
         pop hl
         call cpHLBC
         jp nc, tru
@@ -776,8 +827,7 @@ key_table:
         defword("DOUBLE",6,0,times_two)
         .dw dup, add, exit
 
-        defword("STAR", 4, 0, star)
-        .dw lit, 42, emit, exit
+
 
         defword("STARS",5,0,stars)
         .dw star, one_minus, zbranch, 6, branch, -10, exit
@@ -789,7 +839,7 @@ key_table:
         b_call _Newline
         NEXT
 
-        defcode("AT-XY",4,0,atxy)
+        defcode("AT-XY",5,0,atxy)
         ld a, c
         ld (curRow), a
         pop bc
@@ -800,15 +850,17 @@ key_table:
         ;; Display a null-terminated string starting at the address
         ;; given to by the TOS.
         
-        defcode("PUTS",4,0,put_str)
+        defcode("PUTS",4,0,putstr)
         BC_TO_HL
         b_call _PutS
+        pop bc
         NEXT
 
-        defcode("PUTLN",4,0,putstrln)
+        defcode("PUTLN",5,0,putstrln)
         BC_TO_HL
         b_call _PutS
         b_call _NewLine
+        pop bc
         NEXT
 
 
@@ -825,10 +877,13 @@ buffer    .EQU TextShadow
         ;; We can trash the value of BC now.
 skip_space:
         b_call _GetKey        ;; Destroys BC DE HL, loads keycode to A.
-        cp kSpace
-        jp z, skip_space
-        
-        cp kEnter
+        ld h, 0
+        ld l, a
+        ld c, a
+        ld de, key_table
+        add hl, de            ;; Add the offset.
+        ld a, (hl)            ;; Load the actual ASCII character code into the accumulator.
+        cp ' '
         jp z, skip_space
         
         ;; First non-space character hit.
@@ -836,6 +891,8 @@ skip_space:
         ld hl, buffer
         
         push hl
+
+        ld a, c
 
 word_read_loop:
         ld h, 0
@@ -850,12 +907,24 @@ word_read_loop:
         inc hl                ;; Increment address.
 
         push hl               ;; Save it.
+after_word_del:        
         b_call _GetKey        ;; Read another character.
         cp kEnter
         jp z, word_done
         cp kSpace
         jp z, word_done
+        cp kDel
+        jp z, word_del
         jp word_read_loop
+word_del:
+        pop hl
+        dec hl       ;; Decrement the storage pointer.
+        push hl
+        ld c, a
+        ld a, 207
+        b_call _PutC ;; Indicate that backspace was performed.
+        ld a, c
+        jp after_word_del  ;; We want to return to the main loop, but the user may enter more [DEL] keys.
         
 word_done:
         ;; We still have the address to be written to on the stack.
@@ -867,6 +936,164 @@ word_done:
 
         ;; That was the longest defcode yet!
 
+;; strcmp [Strings]
+;;  Determines if two strings are equal, and checks alphabetical sort order.
+;; Inputs:
+;;  HL: String pointer
+;;  DE: String pointer
+;; Outputs:
+;;  Z: Set if equal, reset if not equal
+;;  C: Set if string HL is alphabetically earlier than string DE
+_strcmp:
+        push hl
+        push de
+_strcmp_loop:
+        ld a, (de)
+        or a
+        jr z, _strcmp_end
+        cp (hl)
+        jr nz, _strcmp_exit
+        inc hl
+        inc de
+        jr _strcmp_loop
+_strcmp_end:
+        ld a, (hl)
+        or a
+_strcmp_exit:
+        ccf
+        pop de
+        pop hl
+        POP_DE_RS
+        jp z, tru
+        jp nz, fal
+
+
+        ;; Convert a pointer returned by FIND to the start of the name
+        ;; field address (something I made up).
+        defcode(">NFA",5,0,to_nfa)
+        inc bc
+        inc bc
+        inc bc
+        NEXT
+        
+        ;; Convert a pointer returned by FIND to the start of the code
+        ;; field address.
+        defcode(">CFA",4,0,to_cfa)
+        inc bc
+        inc bc ;; Skip the link pointer.
+        ld a, (bc) ;; Get the length of the word.
+        ld h, 0
+        ld l, a
+        inc bc
+        add hl, bc
+        HL_TO_BC
+        inc bc
+        NEXT
+
+        ;; Are two strings equal?
+        ;; ( s1 s2 -- b )
+        defcode("STREQ",4,0,streq)
+        PUSH_DE_RS
+        pop de
+        BC_TO_HL
+        pop bc
+        jp _strcmp ;; we're offhanding this to the strcmp routine
+
+
+        ;; ( pointer to string -- pointer to word )
+        defcode("FIND",4,0,find)
+        push de
+        BC_TO_HL
+        ld de, (var_latest)
+        inc de
+        inc de
+        inc de
+
+find_loop:
+        call strcmp
+        jp z, find_succeed
+        jp nz, find_retry
+
+find_succeed:
+        dec de
+        dec de
+        dec de
+        pop hl
+        ex de,hl
+        HL_TO_BC
+        NEXT
+find_retry:
+        dec de
+        dec de
+        dec de
+        push hl
+        ld a, (de)
+        ld l, a
+        inc de
+        ld a, (de)
+        ld h, a
+        dec de
+        ld a, l
+        cp 0
+        jp z, find_maybe_fail
+
+find_retry_cont:        
+        inc hl
+        inc hl
+        inc hl
+        ex de,hl
+        pop hl
+        jp find_loop
+find_maybe_fail:
+        ld a, h
+        cp 0
+        jp z, find_fail
+        jp nz, find_retry_cont
+find_fail:
+        pop hl
+        pop de
+        ld bc, 0
+        NEXT
+
+;; strcmp [Strings]
+;;  Determines if two strings are equal, and checks alphabetical sort order.
+;; Inputs:
+;;  HL: String pointer
+;;  DE: String pointer
+;; Outputs:
+;;  Z: Set if equal, reset if not equal
+;;  C: Set if string HL is alphabetically earlier than string DE
+strcmp:
+        push hl
+        push de
+strcmp_loop:
+        ld a, (de)
+        or a
+        jr z, strcmp_end
+        cp (hl)
+        jr nz, strcmp_exit
+        inc hl
+        inc de
+        jr strcmp_loop
+strcmp_end:
+        ld a, (hl)
+        or a
+strcmp_exit:
+        ccf
+        pop de
+        pop hl
+        ret
+
+
+        defword(">DFA",4,0,to_dfa)
+        .dw to_cfa, four_plus, exit
+        
+
+	;; We're doing this so that we can initialize LATEST to point to it.
+	defword("STAR", 4, 0, star)
+	.dw lit, 42, emit, exit
+
+    
 you_pressed_msg: .db "You pressed:", 0
 
 
@@ -874,8 +1101,6 @@ quadruple_prog:
         .dw times_two, times_two, print_tos, done
 key_count_prog:
         .dw ask, key, you_pressed, print_tos, done
-        defword("COUNT", 5, 0, count)
-        .dw dup, print_tos, one_minus, zbranch, 6, branch, -12, exit
 
 dummy_byte: .db 0
 
@@ -918,18 +1143,46 @@ what_name_str2: .dw "name?",0
 luck_num_str: .db "Your lucky",0
 luck_num_str2: .db "numbers are",0
 hi_str: .db "Hello, ",0
-prog:
+fun_prog:
         .dw lit, what_name_str, putstrln
         .dw lit, what_name_str2, putstrln
         .dw word, cr
-        .dw lit, hi_str, put_str, space
+        .dw lit, hi_str, putstr, space
         .dw __buffer, putstrln
         .dw lit, luck_num_str, putstrln
         .dw lit, luck_num_str2, putstrln
         .dw rand, print_tos, space, rand, print_tos
         .dw done
+
+msg1: .db "SECRET",0
+guess: .db "Guess my secret:",0
+secret_prog:
+        .dw lit, guess, putstrln, lit, msg1
+        .dw word, lit, buffer, streq, print_tos
+        .dw done
+cfa_prog:
+        .dw latest, fetch, dup, lit, 3, add, putstrln
+        .dw dup, print_tos, cr
+        .dw to_cfa, print_tos,cr
+        .dw done
+
+;; Demonstrate that we can perform searches of the words.
+search_msg: .db "Search: ",0
+prog:
+        .dw lit, search_msg, putstrln
+        .dw word, lit, buffer, cr, find, dup, print_tos, dup
+        .dw zbranch, 14, to_nfa, space, putstrln, cr, branch, 2, drop
+        .dw done
         
-return_stack_top  .EQU    AppBackUpScreen+760
+;; We're going to see if the dictionary was constructed correctly.
+words_prog:
+        .dw latest, fetch, dup, lit, 3, add, putstr, space
+        .dw fetch
+        .dw zbranch, 22
+        .dw dup, lit, 3, add, putstr, space     ;; loop
+        .dw key, drop
+        .dw branch, -24
+        .dw done
 
 setup_data_segment:
         ld de, AppBackUpScreen
@@ -941,5 +1194,8 @@ setup_data_segment:
         ld ix, return_stack_top
 
         ret
-
+        
+return_stack_top  .EQU    AppBackUpScreen+764
 prog_exit: .dw 0
+save_sp:
+        .dw 0
