@@ -77,7 +77,7 @@ start:
         push bc
 
         call setup_data_segment
-        ld bc, 1234
+        ld bc, 9999
         ld de, prog
         NEXT
 docol:
@@ -88,6 +88,13 @@ exit:
         POP_DE_RS
         NEXT
 done:
+        ;; We reach here at the end of the program.
+        ld hl, 9999
+        call cpHLBC
+        jp nz, print_stack_error
+
+done_cont:
+
         b_call _GetKey
         b_call _ClrScrnFull
 
@@ -95,7 +102,11 @@ done:
         ld sp, (save_sp)
         ld hl, (prog_exit)
         jp (hl)
-
+print_stack_error:
+        ld hl, possible_error_msg
+        b_call _PutS
+        jp done_cont
+possible_error_msg: .db "Warning: Stack not empty or underflowed.",0
 
 
 #macro defcode(name,len,flags,label)
@@ -162,13 +173,13 @@ _:
         push bc
         NEXT
 
-        defcode("ADD",3,0,add)
+        defcode("*",3,0,add)
         pop hl
         add hl, bc
         HL_TO_BC
         NEXT
 
-        defcode("SUB",3,0,sub)
+        defcode("-",3,0,sub)
         xor a
         pop hl
         sbc hl, bc
@@ -384,13 +395,15 @@ run()
         ;; Actually a variable, but oh well.
         cell_alloc(var_base,10)
         defcode("BASE",4,0,base)
-        PSP_PUSH(var_base)
+        push bc
+        ld bc, var_base
         NEXT
 
         ;; Are we compiling or are we interpreting?
         cell_alloc(var_state,0)
         defcode("STATE",5,0,state)
-        PSP_PUSH(var_state)
+        push bc
+        ld bc, var_state
         NEXT
 
         ;; Address of the most recently defined word.
@@ -398,13 +411,15 @@ run()
 var_latest:
         .dw name_star
         defcode("LATEST",6,0,latest)
-        PSP_PUSH(var_latest)
+        push bc
+        ld bc, var_latest
         NEXT
 
         ;; Top (i.e. bottom) of the stack.
         cell_alloc(var_sz,0)
         defcode("S0",2,0,sz)
-        PSP_PUSH(var_sz)
+        push bc
+        ld bc, var_sz
         NEXT
 
 
@@ -421,15 +436,16 @@ var_latest:
 
         cell_alloc(var_stack_empty,1)
         defcode("?SE", 3, 0, stack_emptyq)
-        PSP_PUSH(var_stack_empty)
-        NEXT
-
-        cell_alloc(var_here,0)
-        defcode("HERE",4,0,here)
         push bc
-        ld hl, (var_here)
+        ld hl, (var_stack_empty)
         ld b, h
         ld c, l
+        NEXT
+
+        cell_alloc(var_here,AppBackUpScreen)
+        defcode("HERE",4,0,here)
+        push bc
+        ld bc, var_here
         NEXT
 
 
@@ -491,7 +507,6 @@ _comma:
         ld (hl), e
         inc hl
         ld (hl), d
-        inc hl
 
         pop de
 
@@ -853,13 +868,13 @@ key_table:
 
 ;; Skipping spaces, get the next word from the user.
 ;; We store the string we got into str_buf.
-;; ( -- )
+;; ( -- base_addr len )
 #define BUFSIZE  31
 buffer    .EQU TextShadow
         defcode("WORD",4,0,word)
         ;; Save IP and TOS.
-        push de
         push bc
+        push de        
         
         ;; We can trash the value of BC now.
 skip_space:
@@ -917,11 +932,14 @@ word_done:
         ;; We still have the address to be written to on the stack.
         pop hl
         ld (hl), 0 ;; NUL-terminate the string
-        pop bc     ;; restore IP and TOS
-        pop de
+        ld de, buffer
+        sbc hl, de
+        pop de     ;; restore IP
+        HL_TO_BC
+        ld hl, buffer
+        push hl
         NEXT
 
-        ;; That was the longest defcode yet!
 
 ;; strcmp [Strings]
 ;;  Determines if two strings are equal, and checks alphabetical sort order.
@@ -993,7 +1011,7 @@ _strcmp_exit:
         BC_TO_HL
         ld de, (var_latest)
         inc de
-        inc de
+        inc de  ;; Skip link pointer and length
         inc de
 
 find_loop:
@@ -1021,7 +1039,7 @@ find_retry:
         ld h, a
         dec de
         ld a, l
-        cp 0
+        cp 0 ;; or a
         jp z, find_maybe_fail
 
 find_retry_cont:        
@@ -1033,7 +1051,7 @@ find_retry_cont:
         jp find_loop
 find_maybe_fail:
         ld a, h
-        cp 0
+        cp 0 ;; or a
         jp z, find_fail
         jp nz, find_retry_cont
 find_fail:
@@ -1074,6 +1092,51 @@ strcmp_exit:
 
         defword(">DFA",4,0,to_dfa)
         .dw to_cfa, four_plus, exit
+
+        defcode("CREATE",6,0,create)
+        ;; Create link pointer and update var_latest to point to it.
+        ld hl, (var_here)
+        PUSH_DE_RS
+        ld de, (var_latest)
+        ld (hl), e
+        inc hl
+        ld (hl), d
+        dec hl
+
+        ;; HL points to the new link pointer, so we should write its value into var_latest
+        ld de, var_latest
+        ld a, l
+        ld (de), a
+        inc de
+        ld a, h
+        ld (de), a
+
+        inc hl
+        inc hl
+        ;; Now we have to write the length of the new word.
+        ld a, c
+        ld (hl), a
+        inc hl
+
+        ;; LDIR loads the value at (HL) to (DE), increments both,
+        ;; decrements BC, loops until BC = 0.
+        ex de, hl
+        pop hl
+        ld b, 0 ;; sanitize input, maybe?
+        ldir
+
+        xor a
+        ld (de), a
+        inc de
+
+        ld hl, var_here
+        ld (hl), e
+        inc hl
+        ld (hl), d
+
+        POP_DE_RS
+        pop bc
+        NEXT
         
 
 	;; We're doing this so that we can initialize LATEST to point to it.
@@ -1133,9 +1196,9 @@ hi_str: .db "Hello, ",0
 fun_prog:
         .dw lit, what_name_str, putstrln
         .dw lit, what_name_str2, putstrln
-        .dw word, cr
+        .dw word, drop, cr
         .dw lit, hi_str, putstr, space
-        .dw __buffer, putstrln
+        .dw putstrln
         .dw lit, luck_num_str, putstrln
         .dw lit, luck_num_str2, putstrln
         .dw rand, print_tos, space, rand, print_tos
@@ -1146,14 +1209,24 @@ msg1: .db "SECRET",0
 guess: .db "Guess my secret:",0
 secret_prog:
         .dw lit, guess, putstrln, lit, msg1
-        .dw word, lit, buffer, streql, print_tos
+        .dw word, drop, lit, buffer, streql, print_tos
         .dw done
+        
 cfa_prog:
         .dw latest, fetch, dup, lit, 3, add, putstrln
         .dw dup, print_tos, cr
         .dw to_cfa, print_tos,cr
         .dw done
 
+;; Test if CREATE works properly.
+create_prog:
+        .dw here, fetch, print_tos, cr
+        .dw word, cr, create, here, fetch, print_tos, cr
+        .dw lit, 1234, comma
+        .dw here, fetch, print_tos, cr
+        .dw here, fetch, one_minus, one_minus, fetch, print_tos, cr
+        .dw done
+        
 ;; Demonstrate that we can perform searches of the words.
 search_msg: .db "Search: ",0
 is_defined_msg: .db " is defined at memory location ",0
@@ -1162,27 +1235,27 @@ the_word_msg: .db "The word ",0
 repeat_msg: .db "Repeat?(Y/N) ",0
 any_key_exit_msg: .db "Press any key to exit...",0
 ;; 46 emit = putchar('.')
-prog:
+search_prog:
         .dw cr
         .dw lit, search_msg, putstrln
-        .dw word, lit, buffer, cr, find, dup
+        .dw word, drop, cr, find, dup
         .dw zbranch, 32, lit, the_word_msg, putstr, dup, to_nfa
         .dw putstr, lit, is_defined_msg, putstrln, print_tos, lit, 46, emit
         .dw branch, 22, drop, lit, the_word_msg, putstr, lit, buffer, putstr
         .dw lit, is_not_defined_msg, putstr, cr
-        .dw lit, repeat_msg, putstr, key, to_ascii, dup, emit, lit, 89, eql, zbranch, 6, branch, -102
+        .dw lit, repeat_msg, putstr, key, to_ascii, dup, emit, lit, 89, eql, zbranch, 6, branch, -100
         .dw cr, lit, any_key_exit_msg, putstrln, done
         
 ;; We're going to see if the dictionary was constructed correctly.
 ;; Hold the right arrow key to fast forward through this.
-words_prog:
+prog:
         .dw latest, fetch, dup, lit, 3, add, putstr, space
         .dw fetch, dup
         .dw zbranch, 22
-        .dw dup, lit, 3, add, putstr, space     ;; loop
+        .dw dup, lit, 3, add, putstr, space
         .dw key, drop
         .dw branch, -26
-        .dw done
+        .dw drop, done
 
 setup_data_segment:
         ld de, AppBackUpScreen
@@ -1192,9 +1265,8 @@ setup_data_segment:
         inc hl
         ld (hl), d
         ld ix, return_stack_top
-
         ret
-        
+
 return_stack_top  .EQU    AppBackUpScreen+764
 prog_exit: .dw 0
 save_sp:   .dw 0
