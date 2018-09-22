@@ -87,8 +87,12 @@ Here's what it does (stack shown in parentheses).
    instruction takes up 2 bytes.
 10. It's that simple!
 
-### Screenshot
+## Screenshots
 ![Result of running the program](demo2.png)
+
+![REPL](repl3.png)
+
+![REPL](repl1.png)
 
 ## Design Notes
 ### Use of Macros
@@ -133,4 +137,9 @@ pasted into the program.
 - [ ] Ability to switch to a "plot"
   - [ ] So you may want to plot something and still go back to the
         REPL when needed.
+- [ ] REPL
+  - [x] Basic Read/Eval/Print/Loop
+  - [ ] Allowing more than one word at a time input
+  - [ ] Reading numbers (support for 0-10 inclusive hardcoded, but not
+        a general algorithm)
 

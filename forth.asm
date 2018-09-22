@@ -430,7 +430,7 @@ var_latest:
         ld (var_state), a
         NEXT
 
-        defcode("]",1,F_IMMED,rbrac)
+        defcode("]",1,1,rbrac)
         ld a, 1
         ld (var_state), a
         NEXT
@@ -1199,6 +1199,7 @@ strcmp_exit:
         pop de
         NEXT
 
+
         defcode("PAGE",4,0,page)
         push bc
         push de
@@ -1348,7 +1349,10 @@ ok_msg: .db "ok",0
 undef_msg: .db " ?",0
 prog:
         .dw word, drop, find, dup, zbranch, 20, to_cfa, space ;; drop the length before finding it (FIXME)
-        .dw execute, space, lit, ok_msg, putstrln, branch, -28, lit, undef_msg, putstrln, branch, -38, done
+        .dw execute, space, lit, ok_msg, putstrln, branch, -28, drop, lit, undef_msg, putstrln, branch, -40, done
 return_stack_top  .EQU    AppBackUpScreen+764
 prog_exit: .dw 0
 save_sp:   .dw 0
+
+
+;; We should be able to define an interpreter in Forth that supports compiled code if we try.
