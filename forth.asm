@@ -133,7 +133,7 @@ _:
 #define CALL_DOCOL call docol
 
 #define F_IMMED $80
-#define F_HIDDEN $20
+#define F_HIDDEN $40
 #define F_LEN $20
 #define F_LENMASK $1F
 
@@ -173,7 +173,7 @@ _:
         push bc
         NEXT
 
-        defcode("*",3,0,add)
+        defcode("+",1,0,add)
         pop hl
         add hl, bc
         HL_TO_BC
@@ -370,9 +370,11 @@ _:
         ld b, 0
         NEXT
 
-        ;; Set the instruction pointer to the top of the stack (i.e. 
+        ;; BC points to a codeword, execute it!
         defcode("EXECUTE",7,0,execute)
-        BC_TO_DE
+        BC_TO_HL
+        pop bc
+        jp (hl)
         NEXT
 
 
@@ -572,17 +574,19 @@ cpBCDE:
         pop hl
         ret
 
+        defcode("ZBRANCH", 7, 0, zbranch)
+        ld a, c
+        cp 0
+        jp z, zbranch_maybe
+        jp nz, zbranch_fail
 
-;; We need this because we want to pop the top of the stack it was indeed 0.
-zbranch_:
+zbranch_maybe:
+        ld a, b
+        cp 0
+        jp nz,zbranch_fail
         pop bc
         jp branch
-        
-        defcode("ZBRANCH", 7, 0, zbranch)
-        ld hl, 0
-        call cpHLBC
-        jp z, zbranch_
-
+zbranch_fail:
         ;; The top of the stack wasn't zero.  Skip the offset and resume execution.
         inc de
         inc de
@@ -696,7 +700,7 @@ str_print:
         NEXT
 
 
-        defcode("U.", 2, 0, print_tos)
+        defcode(".", 1, 0, print_tos)
         BC_TO_HL
         call printhl_safe
         pop bc
@@ -746,10 +750,10 @@ key_table:
 .db "        " ;; 16-23
 .db "        " ;; 24-31
 .db "        " ;; 32-39
-.db "        " ;; 40-47
+.db "       !" ;; 40-47
 .db "   =  ' " ;; 48-55
-.db "        " ;; 56-63
-.db "        " ;; 64-71
+.db " @>     " ;; 56-63
+.db " <      " ;; 64-71
 .db "        " ;; 72-79
 .db "        " ;; 80-87
 .db "        " ;; 88-95
@@ -829,10 +833,44 @@ key_table:
         defword("DOUBLE",6,0,times_two)
         .dw dup, add, exit
 
+        defword("0",1,0,zero)
+        .dw lit, 0, exit
 
+        defword("1",1,0,one)
+        .dw lit, 1, exit
+
+        defword("2",1,0,two)
+        .dw lit, 2, exit
+
+        defword("3",1,0,three)
+        .dw lit, 3, exit
+
+        defword("4",1,0,four)
+        .dw lit, 4, exit
+
+        defword("5",1,0,five)
+        .dw lit, 5, exit
+
+        defword("6",1,0,six)
+        .dw lit, 6, exit
+
+        defword("7",1,0,seven)
+        .dw lit, 7, exit
+
+        defword("8",1,0,eight)
+        .dw lit, 8, exit
+
+        defword("9",1,0,nine)
+        .dw lit, 9, exit
+
+        defword("10",2,0,ten)
+        .dw lit, 10, exit
+
+        defword("TS",2,0,top_stack)
+        .dw dup, print_tos, exit
 
         defword("STARS",5,0,stars)
-        .dw star, one_minus, zbranch, 6, branch, -10, exit
+        .dw star, dup, one_minus, zbranch, 6, branch, -12, exit
 
         defword("SPACE",5,0,space)
         .dw lit, 32, emit, exit
@@ -975,7 +1013,7 @@ _strcmp_exit:
 
         ;; Convert a pointer returned by FIND to the start of the name
         ;; field address (something I made up).
-        defcode(">NFA",5,0,to_nfa)
+        defcode(">NFA",4,0,to_nfa)
         inc bc
         inc bc
         inc bc
@@ -991,8 +1029,8 @@ _strcmp_exit:
         ld l, a
         inc bc
         add hl, bc
+        inc hl
         HL_TO_BC
-        inc bc
         NEXT
 
         ;; Are two strings equal?
@@ -1137,9 +1175,46 @@ strcmp_exit:
         POP_DE_RS
         pop bc
         NEXT
-        
 
-	;; We're doing this so that we can initialize LATEST to point to it.
+        ;; Recall that Forth words start with a call to docol.  The
+        ;; opcode of call is CD <LOW> <HIGH> 9D B6 seems to be the
+        ;; address of DOCOL right now, but we shouldn't hardcode it so
+        ;; we'll let the assembler do its job.
+        defcode("DOCOL_H",7,0,docol_header)
+        push de
+        ld de, (var_here)
+        ld a, $CD
+        ld (de), a
+        inc de
+        ld a, $9D
+        ld (de), a
+        inc de
+        ld a, $B6
+        ld (de), a
+        inc de
+        ld hl, var_here
+        ld (hl), e
+        inc hl
+        ld (hl), d
+        pop de
+        NEXT
+
+        defcode("PAGE",4,0,page)
+        push bc
+        push de
+        ld a, 0
+        ld (currow), a
+        ld (curcol), a
+        b_call _ClrScrnFull
+        pop de
+        pop bc
+        NEXT
+
+
+        defcode("BYE",3,0,bye)
+        jp done
+
+	;; MAKE SURE THIS IS THE LAST WORD TO BE DEFINED!
 	defword("STAR", 4, 0, star)
 	.dw lit, 42, emit, exit
 
@@ -1248,7 +1323,7 @@ search_prog:
         
 ;; We're going to see if the dictionary was constructed correctly.
 ;; Hold the right arrow key to fast forward through this.
-prog:
+words_prog:
         .dw latest, fetch, dup, lit, 3, add, putstr, space
         .dw fetch, dup
         .dw zbranch, 22
@@ -1267,6 +1342,13 @@ setup_data_segment:
         ld ix, return_stack_top
         ret
 
+;; A REPL!  Only works with immediate words (i.e. no definitions yet),
+;; but nevertheless it's amazing!
+ok_msg: .db "ok",0
+undef_msg: .db " ?",0
+prog:
+        .dw word, drop, find, dup, zbranch, 20, to_cfa, space ;; drop the length before finding it (FIXME)
+        .dw execute, space, lit, ok_msg, putstrln, branch, -28, lit, undef_msg, putstrln, branch, -38, done
 return_stack_top  .EQU    AppBackUpScreen+764
 prog_exit: .dw 0
 save_sp:   .dw 0
