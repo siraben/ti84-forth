@@ -68,7 +68,8 @@ start:
         b_call _RunIndicOff
         b_call _ClrLCDFull
         b_call _HomeUp
-        
+
+
         pop bc ;; Save the place where this program needs to go.
         ld hl, prog_exit
         ld (hl), c
@@ -76,6 +77,14 @@ start:
         ld (hl), b
         push bc
 
+        ;; For some weird reason, either the spasm assembler or TI-84
+        ;; can't store the string "[", so we have to fix it by changing the value of lbrac's string.
+
+        ld hl, name_lbrac
+        inc hl
+        inc hl
+        inc hl
+        ld (hl), 193
         call setup_data_segment
         ld bc, 9999
         ld de, prog
@@ -84,9 +93,8 @@ docol:
         PUSH_DE_RS
         pop de
         NEXT
-exit:
-        POP_DE_RS
-        NEXT
+        
+
 done:
         ;; We reach here at the end of the program.
         ld hl, 9999
@@ -132,10 +140,10 @@ _:
 
 #define CALL_DOCOL call docol
 
-#define F_IMMED $80
-#define F_HIDDEN $40
+#define F_IMMED 128
+#define F_HIDDEN 64
 #define F_LEN $20
-#define F_LENMASK $1F
+#define F_LENMASK 31
 
 #macro defword(name,len,flags,label)
 
@@ -159,6 +167,10 @@ _:
   CALL_DOCOL
 #endmacro
 
+        defcode("EXIT",4,0,exit)
+        POP_DE_RS
+        NEXT
+
         defcode("FOO",3,0,foo)
         push bc
         ld bc, 1234
@@ -179,11 +191,17 @@ _:
         HL_TO_BC
         NEXT
 
-        defcode("-",3,0,sub)
+        defcode("-",1,0,sub)
         xor a
         pop hl
         sbc hl, bc
         HL_TO_BC
+        NEXT
+
+        ;; To be implemented.
+        defcode("AND",3,0,and)
+        pop bc
+        
         NEXT
 
         defcode("DROP",4,0,drop)
@@ -209,7 +227,8 @@ _:
         pop de
         push hl
         push bc
-        push de
+        ex de, hl
+        HL_TO_BC
         POP_DE_RS
         NEXT
 
@@ -228,12 +247,11 @@ _:
         pop bc
         NEXT
 
-        defcode("2DUP",5,0,two_dup)
+        defcode("2DUP",4,0,two_dup)
         pop hl
         push hl
         push bc
         push hl
-        push bc
         NEXT
 
         ;; Register contents (return stack contents)
@@ -264,15 +282,17 @@ _:
         NEXT
 
         defcode("4+", 2, 0, four_plus)
-        ld hl, 4
-        add hl, bc
-        HL_TO_BC
+        inc bc
+        inc bc
+        inc bc
+        inc bc
         NEXT
         
         defcode("4-", 2, 0, four_minus)
-        ld hl, -4
-        add hl, bc
-        HL_TO_BC
+        dec bc
+        dec bc
+        dec bc
+        dec bc
         NEXT
 
         defcode(">R", 2, 0, to_r)
@@ -306,6 +326,7 @@ _:
         inc bc
         ld a, h
         ld (bc), a
+        pop bc
         NEXT
 
         defcode("@", 1,0,fetch)
@@ -370,6 +391,25 @@ _:
         ld b, 0
         NEXT
 
+        defcode("C@C!",4,0,byte_copy)
+        pop hl
+        ld a, (bc)
+        ld (hl), a
+        inc hl
+        inc bc
+        push hl
+        NEXT
+
+        defcode("CMOVE",5,0,cmove)
+        PUSH_DE_RS
+        pop hl
+        pop de
+        ldir
+        push de
+        HL_TO_BC
+        POP_DE_RS
+        NEXT
+
         ;; BC points to a codeword, execute it!
         defcode("EXECUTE",7,0,execute)
         BC_TO_HL
@@ -402,7 +442,7 @@ run()
         NEXT
 
         ;; Are we compiling or are we interpreting?
-        cell_alloc(var_state,0)
+        cell_alloc(var_state,1)
         defcode("STATE",5,0,state)
         push bc
         ld bc, var_state
@@ -425,14 +465,18 @@ var_latest:
         NEXT
 
 
-        defcode("[",1,F_IMMED,lbrac)
-        xor a
-        ld (var_state), a
+        defcode("x",1,0,lbrac)
+        ld hl, var_state
+        ld (hl), 0
+        inc hl
+        ld (hl), 0
         NEXT
 
-        defcode("]",1,1,rbrac)
-        ld a, 1
-        ld (var_state), a
+        defcode("]",1,0,rbrac)
+        ld hl, var_state
+        ld (hl), 1
+        inc hl
+        ld (hl), 0
         NEXT
         
 
@@ -457,7 +501,7 @@ var_latest:
         NEXT
 
         defcode("BUF", 3, 0, __buffer)
-        PSP_PUSH(buffer)
+        PSP_PUSH(str_buf)
         NEXT
 
         defcode("R0", 2, 0, rz)
@@ -685,14 +729,20 @@ str_print:
         ;; key emit should output the same character that was input,
         ;; by the way
         defcode("KEY", 3, 0, key)
+        call key_asm
         push bc
-        push de
-        b_call _GetKey
-        pop de
         ld c, a
         ld b, 0
         NEXT
 
+key_asm:
+        push bc
+        push de
+        b_call _GetKey
+        pop de
+        pop bc
+        ret
+        
         defcode("EMIT",4,0,emit)
         ld a, c
         b_call _PutC
@@ -706,24 +756,48 @@ str_print:
         pop bc
         NEXT
 
+        defword("?", 1, 0, peek_addr)
+        .dw fetch, print_tos, exit
+
         ;; Convert a key code into an ASCII character by way of a
         ;; lookup table.
-        defcode("KEY_ASCII",9,0,key_ascii)
-        ;; First portion is copied from key.
-        push bc
+
+        ;; We need both because sometimes we might want to check for a
+        ;; specific key that doesn't correspond to something
+        ;; printable.
+        defcode("AKEY",4,0,akey)
         push de
+        call akey_asm
+        pop de
+        
+        push bc
+        ld b, 0
+        ld c, a
+        NEXT
+
+;; Trashes hl, de, returns the ASCII character in register A If the
+;; user pressed enter, this is recorded as $00.  This routine keeps
+;; asking for input until a character that is in the table is input.
+akey_asm:
+        ;; First portion is copied from key.
         b_call _GetKey
         ;; a contains the byte received.
         ld h, 0
         ld l , a
+        cp kSpace
+        jp z, akey_return_space
         ld de, key_table
         ;; Add the offset
         add hl, de
         ld a, (hl)
-        ld c, a
-        ld b, 0
-        pop de
-        NEXT
+        cp ' '
+        jp z, akey_asm
+        
+        ret
+
+akey_return_space:
+        ld a, ' '
+        ret
 
         defcode("TO_ASCII",8,0,to_ascii)
         ;; First portion is copied from key.
@@ -752,7 +826,7 @@ key_table:
 .db "        " ;; 32-39
 .db "       !" ;; 40-47
 .db "   =  ' " ;; 48-55
-.db " @>     " ;; 56-63
+.db "_@>     " ;; 56-63
 .db " <      " ;; 64-71
 .db "        " ;; 72-79
 .db "        " ;; 80-87
@@ -761,7 +835,7 @@ key_table:
 .db "        " ;; 104-111
 .db "        " ;; 112-119
 .db "        " ;; 120-127
-.db "+-*/^()",193 ;; 128-135
+.db "+-*/^()",$C1 ;; 128-135
 .db "]  , .01" ;; 136-143
 .db "23456789" ;; 144-151
 .db "  ABCDEF";; 152-159
@@ -769,12 +843,12 @@ key_table:
 .db "OPQRSTUV" ;; 168-175
 .db "WXYZ    " ;; 176-183
 .db "        " ;; 184-191
-.db "       :" ;; 192-199
+.db "      : " ;; 192-199
 .db "  ?\"    " ;; 200-207
 .db "        " ;; 208-215
 .db "        " ;; 216-223
 .db "        " ;; 224-231
-.db "    {}  " ;; 232-239
+.db "    {};\\" ;; 232-239
 .db "        " ;; 240-247
 .db "        " ;; 248-255
 
@@ -829,9 +903,6 @@ key_table:
         .dw dup, one_plus, print_tos
         .dw dup, one_minus, print_tos
         .dw print_tos, exit
-
-        defword("DOUBLE",6,0,times_two)
-        .dw dup, add, exit
 
         defword("0",1,0,zero)
         .dw lit, 0, exit
@@ -904,77 +975,293 @@ key_table:
         NEXT
 
 
-;; Skipping spaces, get the next word from the user.
-;; We store the string we got into str_buf.
+;; Get a full string of input (i.e. buffer user input for WORD and number etc.)
+;; Input: none
+;; Output: none
+;; Side effect:
+;; str_buf contains the user input.
+;; gets_ptr points to the start of the buffer
+
+;; We also want immediate feedback to the user.
+;; 64 spaces
+str_buf: .db "                                                                ",0
+gets_ptr: .dw 0
+
+        defcode("GETS",4,0,get_str_forth)
+        push de
+        push bc
+        call get_str
+        pop bc
+        pop de
+        NEXT
+        
+get_str:
+        ld hl, gets_ptr
+        ld de, str_buf
+
+        ld (hl), e
+        inc hl
+        ld (hl), d
+        dec hl
+
+        xor a
+        ld b, a ;; B will store how many characters we have read.
+        ld (CurCol), a
+
+;; GetKey destroys BC DE HL
+key_loop:
+        push hl
+        push de
+        push bc
+        b_call _GetKey
+        pop bc     
+        pop de
+        pop hl
+        
+        cp kEnter
+        jp nz, not_enter
+
+        ;; Got [ENTER].  Finish up.  Maybe the user hit [ENTER]
+        ;; without entering anything, we need to check for that too.
+        ld a, b
+        or a
+        jp z, no_chars
+        
+        xor a
+        ld (de), a
+
+        ret
+
+no_chars:
+        xor a
+        ld (de), a
+        inc de
+        ld (de), a
+        ret
+not_enter:
+        ;; Maybe it's the delete key?
+        cp kDel
+        jp nz, not_del
+
+        ;; Yep.  Let's give some feedback.
+        ld a, b
+        or a
+        ;; We're still at 0 characters!  Restart.
+        jp z, key_loop
+
+        ld hl, CurCol
+        ld a, (hl)
+        dec (hl)
+
+        ;; Check if 0th column.
+        or a
+        jr nz, not_backup_line
+        ;; Original column was 0, so we need to back up to the
+        ;; previous line.
+        ld (hl), 15
+        dec hl
+        dec (hl)
+
+not_backup_line:
+        dec de
+        dec b
+        ld a, ' '
+        b_call _PutMap
+        jp key_loop
+        
+not_del:
+        cp kClear
+        jr nz, not_clear
+
+        ;; We have to clear everything!
+        ld c, b
+        ;; Divide C by 16.
+        sra c
+        sra c
+        sra c
+        sra c
+
+        ld hl, CurRow
+        ld a,b
+        or a
+        ;; No characters left.
+        jr z, key_loop
+
+        ld a, (hl)
+        sub c
+        ld c, a
+        ld (hl), a
+
+        inc hl
+        ld (hl), 0
+        ld a, ' '
+
+clear_loop:
+        b_call _PutC
+        djnz clear_loop
+        
+        ld (hl), b
+        dec hl
+        ld (hl), c
+        ld de, str_buf
+        jp key_loop
+        
+not_clear:
+        ld c, a
+        ld a, b
+        cp BUFSIZE
+        jr z, key_loop
+        ld a, c
+
+        cp kSpace
+        jp z, write_space
+
+        ;; Convert to ASCII.
+        ld h, 0
+        ld l, a
+
+        push de
+        ld de, key_table
+        add hl, de
+        pop de
+        
+        ld a, (hl)
+        ;; We got a space back, so it's not printable.  Try again.
+        cp ' '
+        jp z, key_loop
+        jp write_char
+write_space:
+        ld a, ' '
+write_char:
+        b_call _PutC
+        ld (de), a
+        inc de
+        inc b
+        jp key_loop
+
+;; Get the next character from the buffer.
+;; A contains the next character from the buffer.
+        defcode("GETC", 4, 0, get_char_forth)
+
+        call get_char_asm
+        push bc
+        ld b, 0
+        ld c, a
+        NEXT
+get_char_asm:
+        push hl
+        push de
+        ld hl, gets_ptr
+        ld de, (gets_ptr)
+        
+        ld a, (de)
+        or a
+        jp z, get_char_end
+        inc de
+        ld (hl), e
+        inc hl
+        ld (hl), d
+get_char_end:
+        pop de
+        pop hl
+        ret
+
+unget_char:
+        push hl
+        push de
+        ld hl, (gets_ptr)
+        ld de, str_buf
+        b_call _CpHLDE
+        scf
+        jr z, unget_char_done
+        dec hl
+        ld (gets_ptr), hl
+        or a
+
+unget_char_done:
+        pop de
+        pop hl
+        ret
+
+;; Skipping spaces, get the next word from the user.  Remember that
+;; this needs to be flexible enough to be called from Forth as well.
+;; We expect it to return a pointer to the next word following
+;; gets_ptr.
+
 ;; ( -- base_addr len )
-#define BUFSIZE  31
-buffer    .EQU TextShadow
+#define BUFSIZE  64
+word_buf: .db "                                ",0
+word_buf_ptr: .dw 0
         defcode("WORD",4,0,word)
         ;; Save IP and TOS.
         push bc
-        push de        
-        
-        ;; We can trash the value of BC now.
+        push de
+word_restart:
+        ld hl, word_buf_ptr
+        ld de, word_buf
+        ;; Initialize word_buf_ptr to point at the actual start.
+        ld (hl), e
+        inc hl
+        ld (hl), d
+        dec hl
+        jp skip_space
+word_retry:
+        push hl
+        push de
+        push bc
+        call get_str
+        pop bc
+        pop de
+        pop hl
 skip_space:
-        b_call _GetKey        ;; Destroys BC DE HL, loads keycode to A.
-        ld h, 0
-        ld l, a
-        ld c, a
-        ld de, key_table
-        add hl, de            ;; Add the offset.
-        ld a, (hl)            ;; Load the actual ASCII character code into the accumulator.
+        call get_char_asm
+        or a
+        jp z, empty_word  ;; get_char_asm returned nothing, so we need to retry with get_str
         cp ' '
         jp z, skip_space
-        
-        ;; First non-space character hit.
-        ;; Push the address of where to write to.
-        ld hl, buffer
-        
+        cp '\\'
+        jp z, skip_comment
+        jp actual_word
+;; We really need a word.  Ask again!
+empty_word:
+        jp word_retry
+skip_comment:
+        ;; Since we know get_str reads one line of input, we can just
+        ;; invoke WORD again to actually get the next word.
         push hl
-
-        ld a, c
-
-word_read_loop:
-        ld h, 0
-        ld l, a
-        ld de, key_table
-        add hl, de            ;; Add the offset.
-        ld a, (hl)            ;; Load the actual ASCII character code into the accumulator.
-        b_call _PutC          ;; Give user feedback.
-        pop hl                ;; Pop the address to write to.
-        ld (hl), a
-        
-        inc hl                ;; Increment address.
-
-        push hl               ;; Save it.
-after_word_del:        
-        b_call _GetKey        ;; Read another character.
-        cp kEnter
-        jp z, word_done
-        cp kSpace
-        jp z, word_done
-        cp kDel
-        jp z, word_del
-        jp word_read_loop
-word_del:
+        push de
+        push bc
+        call get_str
+        pop bc
+        pop de
         pop hl
-        dec hl       ;; Decrement the storage pointer.
-        push hl
-        ld c, a
-        ld a, 207
-        b_call _PutC ;; Indicate that backspace was performed.
-        ld a, c
-        jp after_word_del  ;; We want to return to the main loop, but the user may enter more [DEL] keys.
+        jp word_restart
+
+actual_word:
+        ld c, 1
+        ;; A contains the character.        
+        ld hl, (word_buf_ptr)
+actual_word_write:        
+        ld (hl), a
+actual_word_loop:
+        inc hl
+        call get_char_asm
+        or a
+        jp z, word_done
+        cp ' '
+        jp z, word_done
+
+        ;; A is another non-space, printable character.
+        inc c
+        jp actual_word_write
         
 word_done:
-        ;; We still have the address to be written to on the stack.
-        pop hl
-        ld (hl), 0 ;; NUL-terminate the string
-        ld de, buffer
-        sbc hl, de
-        pop de     ;; restore IP
-        HL_TO_BC
-        ld hl, buffer
+        ;; Either read NUL or a space.
+        xor a
+        ld (hl), a
+        pop de
+        ld hl, word_buf
+        ld b, 0  ;; c should contain the number of characters.
         push hl
         NEXT
 
@@ -1011,6 +1298,26 @@ _strcmp_exit:
         jp nz, fal
 
 
+        ;; Is this word immediate? (assuming it's a pointer returned by FIND)
+        defcode("IMMED?",6,0, immedq)
+        inc bc
+        inc bc
+        ld a, (bc)
+        bit 7, a
+        jp z, fal
+        jp tru
+
+        ;; Make the last word immediate
+        defcode("IMMED",5,0, immediate)
+        ld hl, (var_latest)
+        inc hl
+        inc hl
+        ld a, 128
+        xor (hl)
+        ld (hl), a
+        NEXT
+
+        
         ;; Convert a pointer returned by FIND to the start of the name
         ;; field address (something I made up).
         defcode(">NFA",4,0,to_nfa)
@@ -1024,7 +1331,8 @@ _strcmp_exit:
         defcode(">CFA",4,0,to_cfa)
         inc bc
         inc bc ;; Skip the link pointer.
-        ld a, (bc) ;; Get the length of the word.
+        ld a, (bc) ;; Get the length and flags of the word.
+        and F_LENMASK ;; Remove flags except for length.
         ld h, 0
         ld l, a
         inc bc
@@ -1129,9 +1437,9 @@ strcmp_exit:
 
 
         defword(">DFA",4,0,to_dfa)
-        .dw to_cfa, four_plus, exit
+        .dw to_cfa, four_plus, one_minus, exit
 
-        defcode("CREATE",6,0,create)
+        defcode("CREATE",6,0,create) ;; ( name length -- )
         ;; Create link pointer and update var_latest to point to it.
         ld hl, (var_here)
         PUSH_DE_RS
@@ -1177,7 +1485,7 @@ strcmp_exit:
         NEXT
 
         ;; Recall that Forth words start with a call to docol.  The
-        ;; opcode of call is CD <LOW> <HIGH> 9D B6 seems to be the
+        ;; opcode of call is CD <LOW> <HIGH> B6 9D seems to be the
         ;; address of DOCOL right now, but we shouldn't hardcode it so
         ;; we'll let the assembler do its job.
         defcode("DOCOL_H",7,0,docol_header)
@@ -1186,10 +1494,12 @@ strcmp_exit:
         ld a, $CD
         ld (de), a
         inc de
-        ld a, $9D
+        ld hl, docol
+        ;; Yes, this is correct.  We are writing a call docol instruction manually.
+        ld a, l
         ld (de), a
         inc de
-        ld a, $B6
+        ld a, h
         ld (de), a
         inc de
         ld hl, var_here
@@ -1198,6 +1508,14 @@ strcmp_exit:
         ld (hl), d
         pop de
         NEXT
+
+        defword(":",1,0,colon)
+        .dw space, word, create, docol_header
+        .dw lbrac, exit
+
+        defword(";",1,128, semicolon)
+        .dw lit, exit, comma
+        .dw rbrac, exit
 
 
         defcode("PAGE",4,0,page)
@@ -1222,9 +1540,6 @@ strcmp_exit:
     
 you_pressed_msg: .db "You pressed:", 0
 
-
-quadruple_prog:
-        .dw times_two, times_two, print_tos, done
 key_count_prog:
         .dw ask, key, you_pressed, print_tos, done
 
@@ -1243,7 +1558,7 @@ stars_prog:
 ;; to the screen).
         
 type_prog:
-        .dw key_ascii, dup, emit
+        .dw akey, dup, emit
         .dw lit, 0, eql, zbranch, -14, done
 
 ;; Prints out the keycode entered, the character with that code.
@@ -1281,12 +1596,12 @@ fun_prog:
         .dw done
 
 ;; Demonstrate word input and string comparsion.
-msg1: .db "SECRET",0
-guess: .db "Guess my secret:",0
-secret_prog:
-        .dw lit, guess, putstrln, lit, msg1
-        .dw word, drop, lit, buffer, streql, print_tos
-        .dw done
+;; msg1: .db "SECRET",0
+;; guess: .db "Guess my secret:",0
+;; secret_prog:
+;;         .dw lit, guess, putstrln, lit, msg1
+;;         .dw word, drop, lit, buffer, streql, print_tos
+;;         .dw done
         
 cfa_prog:
         .dw latest, fetch, dup, lit, 3, add, putstrln
@@ -1311,27 +1626,27 @@ the_word_msg: .db "The word ",0
 repeat_msg: .db "Repeat?(Y/N) ",0
 any_key_exit_msg: .db "Press any key to exit...",0
 ;; 46 emit = putchar('.')
-search_prog:
-        .dw cr
-        .dw lit, search_msg, putstrln
-        .dw word, drop, cr, find, dup
-        .dw zbranch, 32, lit, the_word_msg, putstr, dup, to_nfa
-        .dw putstr, lit, is_defined_msg, putstrln, print_tos, lit, 46, emit
-        .dw branch, 22, drop, lit, the_word_msg, putstr, lit, buffer, putstr
-        .dw lit, is_not_defined_msg, putstr, cr
-        .dw lit, repeat_msg, putstr, key, to_ascii, dup, emit, lit, 89, eql, zbranch, 6, branch, -100
-        .dw cr, lit, any_key_exit_msg, putstrln, done
+;; search_prog:
+;;         .dw cr
+;;         .dw lit, search_msg, putstrln
+;;         .dw word, drop, cr, find, dup
+;;         .dw zbranch, 32, lit, the_word_msg, putstr, dup, to_nfa
+;;         .dw putstr, lit, is_defined_msg, putstrln, print_tos, lit, 46, emit
+;;         .dw branch, 22, drop, lit, the_word_msg, putstr, lit, buffer, putstr
+;;         .dw lit, is_not_defined_msg, putstr, cr
+;;         .dw lit, repeat_msg, putstr, key, to_ascii, dup, emit, lit, 89, eql, zbranch, 6, branch, -100
+;;         .dw cr, lit, any_key_exit_msg, putstrln, done
         
-;; We're going to see if the dictionary was constructed correctly.
-;; Hold the right arrow key to fast forward through this.
-words_prog:
-        .dw latest, fetch, dup, lit, 3, add, putstr, space
-        .dw fetch, dup
-        .dw zbranch, 22
-        .dw dup, lit, 3, add, putstr, space
-        .dw key, drop
-        .dw branch, -26
-        .dw drop, done
+;; ;; We're going to see if the dictionary was constructed correctly.
+;; ;; Hold the right arrow key to fast forward through this.
+;; words_prog:
+;;         .dw latest, fetch, dup, lit, 3, add, putstr, space
+;;         .dw fetch, dup
+;;         .dw zbranch, 22
+;;         .dw dup, lit, 3, add, putstr, space
+;;         .dw key, drop
+;;         .dw branch, -26
+;;         .dw drop, done
 
 setup_data_segment:
         ld de, AppBackUpScreen
@@ -1347,7 +1662,7 @@ setup_data_segment:
 ;; but nevertheless it's amazing!
 ok_msg: .db "ok",0
 undef_msg: .db " ?",0
-prog:
+repl_prog:
         .dw word, drop, find, dup, zbranch, 20, to_cfa, space ;; drop the length before finding it (FIXME)
         .dw execute, space, lit, ok_msg, putstrln, branch, -28, drop, lit, undef_msg, putstrln, branch, -40, done
 return_stack_top  .EQU    AppBackUpScreen+764
@@ -1356,3 +1671,17 @@ save_sp:   .dw 0
 
 
 ;; We should be able to define an interpreter in Forth that supports compiled code if we try.
+prog:
+        .dw get_str_forth
+        .dw word, drop, find, dup, zbranch, 48
+        .dw lit, var_state, fetch, zbranch, 18, to_cfa, execute, space
+        .dw lit, ok_msg, putstrln, branch, -36, dup, immedq, zbranch, 6
+        .dw branch, -26
+        .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -68
+        .dw done
+
+getstr_prog:
+        .dw get_str_forth, cr
+        .dw word, print_tos, cr, lit, word_buf, putstrln
+        .dw word, print_tos, cr, lit, word_buf, putstrln
+        .dw done

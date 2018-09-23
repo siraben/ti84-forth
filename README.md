@@ -62,37 +62,53 @@ optional.
 - Programs are lists of 16-bit addresses
 - Takes advantage of system calls such as `_GetKey`, `_PutC` and more
   to come (such as drawing pixels!)
-## Example Program
-```asm
-prog:
-        .dw key, dup, dup, print_tos, space, emit, cr ;; Steps 1-6
-        .dw lit, kEnter, eql                          ;; Steps 7-8
-        .dw zbranch, -22                              ;; Step 9
-        .dw done                                      ;; Step 10
+## Example Programs
+This Forth doesn't have a built-in `IF` statement, but we can make one ourselves.
+```forth
+: IF
+	' ZBRANCH ,
+	HERE @
+	0 ,
+; IMMED
+
+: THEN
+	DUP
+	HERE @ SWAP -
+	SWAP !
+; IMMED
 ```
 
-Here's what it does (stack shown in parentheses).
-1. Get a key from the user and place at the top of the stack. (a)
-2. Duplicate it twice. (a a a)
-3. Print the value of the top element of the stack (a a)
-4. Print a space (a a)
-5. Print the character that corresponds to the code given by the top
-   element of the stack. (a)
-6. Print a newline (a)
-7. Push the literal `kEnter` on the top of the stack (a b)
-8. Check if the two are equal (i.e. the original entered key was an
-   Enter key), and push the result on the stack (a c)
-9. If the top of the stack is zero (i.e. false), then branch back 22
-   bytes.  There are 11 instructions to be skipped but each
-   instruction takes up 2 bytes.
-10. It's that simple!
+We can use our shiny new `IF` statement in compiled words:
+
+```forth
+: BAZ 3 = IF STAR STAR THEN STAR ;
+
+10 BAZ \ => *
+3 BAZ \ => ***
+```
+How about a word to see the latest word defined?
+```forth
+: NL LATEST @ >NFA SPACE PUTLN ;
+: DOUBLE DUP + ;
+NL \ => DOUBLE
+```
+
 
 ## Screenshots
-![Result of running the program](demo2.png)
+### Freedom, on your calculator.
+![Read memory.  One byte at a time.](repl3.png)
 
-![REPL](repl3.png)
+### TI-84+ inside
+![key-prog program](demo2.png)
 
-![REPL](repl1.png)
+### An interactive REPL
+![REPL demonstration](repl1.png)
+
+### Define new words...
+![Defining DOUBLE](repl4.png)
+
+### ...and use them.
+![Using DOUBLE](repl5.png)
 
 ## Design Notes
 ### Use of Macros
@@ -131,7 +147,7 @@ writing it out manually.
   - [ ] Number reading routines
 - [x] Output
   - [x] Displaying strings
-- [ ] Proper support for compile/interpret mode
+- [x] Proper support for compile/interpret mode
 - [ ] Assembler to convert Forth words into `.dw` data segments to be
 pasted into the program.
 - [ ] Ability to switch to a "plot"
@@ -139,7 +155,9 @@ pasted into the program.
         REPL when needed.
 - [ ] REPL
   - [x] Basic Read/Eval/Print/Loop
-  - [ ] Allowing more than one word at a time input
+  - [x] Allowing more than one word at a time input
+  - [ ] Respect hidden flag to avoid infinite looping
   - [ ] Reading numbers (support for 0-10 inclusive hardcoded, but not
         a general algorithm)
+- [ ] Document Forth words
 
