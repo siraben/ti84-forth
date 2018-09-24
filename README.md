@@ -62,6 +62,7 @@ optional.
 - Programs are lists of 16-bit addresses
 - Takes advantage of system calls such as `_GetKey`, `_PutC` and more
   to come (such as drawing pixels!)
+
 ## Example Programs
 Let's make a program to interactively display the keypresses of the
 user.  We have an `AKEY` word that returns the calculator keypress as
@@ -86,6 +87,19 @@ can enter into the calculator.
 ;
 ```
 
+## Available Words
+```text
+EXIT FOO BAR DUP + - AND OR XOR INVERT DROP SWAP OVER
+ROT -ROT 2DROP 2DUP 2SWAP 1+ 1- 4+ 4- >R R> RDROP LIT !
+@ +! -! C! C@ C@C! CMOVE EXECUTE BASE STATE LATEST S0 x
+] ?SE HERE DOCOL BUF WBUF R0 F_IMMED F_HIDDEN F_LENMASK '
+, SP@ SP! BRANCH 0BRANCH ?DUP = <> >= < > 0= RAND ASK
+UPRESS KEY EMIT . ? AKEY TO_ASCII * TESTA 0 1 2 3 4 5
+6 7 8 9 10 TS SPACE CR AT-XY PUTS PUTLN GETS GETC WORD
+IMMED? IMMED >NFA >CFA STR= FIND >DFA CREATE DOCOL_H : ;
+PAGE HIDDEN ?HIDDEN HIDE IF THEN ELSE BEGIN UNTIL AGAIN
+WHILE REPEAT CHAR [COMP] CONST ALLOT CELLS VAR BYE STAR
+```
 
 ## Screenshots
 ### Freedom, on your calculator.
