@@ -78,9 +78,9 @@ start:
         push bc
 
         ;; For some weird reason, either the spasm assembler or TI-84
-        ;; can't store the string "[", so we have to fix it by changing the value of lbrac's string.
+        ;; can't store the string "[", so we have to fix it by changing the value of rbrac's string.
 
-        ld hl, name_lbrac
+        ld hl, name_rbrac
         inc hl
         inc hl
         inc hl
@@ -198,9 +198,86 @@ _:
         HL_TO_BC
         NEXT
 
-        ;; To be implemented.
+bit_cache: .dw 0
+        ;; 16-bit AND operator, yay!
         defcode("AND",3,0,and)
-        pop bc
+        pop hl
+        ld (bit_cache), hl
+
+        ld hl, bit_cache
+        ;; AND lowest byte first.
+        ld a, c
+        and (hl)
+        ld (hl), a
+        inc hl
+
+        ld a, b
+        and (hl)
+        ld (hl), a
+        dec hl
+
+        ld a, (hl)
+        ld c, a
+        inc hl
+        ld a, (hl)
+        ld b, a
+        NEXT
+
+        defcode("OR",2,0,or)
+        pop hl
+        ld (bit_cache), hl
+
+        ld hl, bit_cache
+
+        ld a, c
+        or (hl)
+        ld (hl), a
+        inc hl
+
+        ld a, b
+        or (hl)
+        ld (hl), a
+        dec hl
+
+        ld a, (hl)
+        ld c, a
+        inc hl
+        ld a, (hl)
+        ld b, a
+        NEXT
+
+        defcode("XOR",3,0,xor)
+        pop hl
+        ld (bit_cache), hl
+
+        ld hl, bit_cache
+
+        ld a, c
+        xor (hl)
+        ld (hl), a
+        inc hl
+
+        ld a, b
+        xor (hl)
+        ld (hl), a
+        dec hl
+
+        ld a, (hl)
+        ld c, a
+        inc hl
+        ld a, (hl)
+        ld b, a
+        NEXT
+
+        ;; Bitwise NOT.
+        defcode("INVERT",6,0,invert)
+        ld a, c
+        cpl
+        ld c, a
+
+        ld a, b
+        cpl
+        ld b, a
         
         NEXT
 
@@ -235,10 +312,10 @@ _:
         defcode("-ROT",4,0,nrot)
         PUSH_DE_RS
         pop hl
-        pop de
+        pop de 
         push bc
         push de
-        push hl
+        HL_TO_BC
         POP_DE_RS
         NEXT
 
@@ -301,6 +378,7 @@ _:
         NEXT
 
         defcode("R>", 2, 0, from_r)
+        push bc
         POP_BC_RS
         NEXT
         
@@ -401,6 +479,7 @@ _:
         NEXT
 
         defcode("CMOVE",5,0,cmove)
+        ;; ( destination source amount -- )
         PUSH_DE_RS
         pop hl
         pop de
@@ -465,14 +544,14 @@ var_latest:
         NEXT
 
 
-        defcode("x",1,0,lbrac)
+        defcode("x",1,0,rbrac)
         ld hl, var_state
         ld (hl), 0
         inc hl
         ld (hl), 0
         NEXT
 
-        defcode("]",1,0,rbrac)
+        defcode("]",1,0,lbrac)
         ld hl, var_state
         ld (hl), 1
         inc hl
@@ -502,6 +581,10 @@ var_latest:
 
         defcode("BUF", 3, 0, __buffer)
         PSP_PUSH(str_buf)
+        NEXT
+
+        defcode("WBUF", 4, 0, __word_buffer)
+        PSP_PUSH(word_buf)
         NEXT
 
         defcode("R0", 2, 0, rz)
@@ -618,7 +701,7 @@ cpBCDE:
         pop hl
         ret
 
-        defcode("ZBRANCH", 7, 0, zbranch)
+        defcode("0BRANCH", 7, 0, zbranch)
         ld a, c
         cp 0
         jp z, zbranch_maybe
@@ -657,7 +740,7 @@ zbranch_fail:
         jp z, fal
         jp tru
 
-        defcode(">=", 2,0,greater)
+        defcode(">=", 2,0,greater_eq)
         pop hl
         call cpHLBC
         jp nc, tru
@@ -669,11 +752,25 @@ zbranch_fail:
         jp c, tru
         jp fal
 
+        defcode(">",1,0,greater_than)
+        pop hl
+        push hl
+        push bc
+        call cpHLBC
+        pop bc
+        pop hl        
+        jp nc, gt_check_neq
+        jp fal
+gt_check_neq:
+        call cpHLBC
+        jp z, fal
+        jp tru        
+
         defcode("0=",2,0,zeql)
         ld hl,0
         call cpHLBC
-        jp c, tru
-        jp fal
+        jp c, fal
+        jp tru
 
         defcode("RAND",4,0,rand)
         push bc
@@ -939,9 +1036,6 @@ key_table:
 
         defword("TS",2,0,top_stack)
         .dw dup, print_tos, exit
-
-        defword("STARS",5,0,stars)
-        .dw star, dup, one_minus, zbranch, 6, branch, -12, exit
 
         defword("SPACE",5,0,space)
         .dw lit, 32, emit, exit
@@ -1366,7 +1460,12 @@ find_loop:
         jp nz, find_retry
 
 find_succeed:
+        ;; We found the word.  But is it hidden?
         dec de
+        ;; Now we're at the length/flags pointer.
+        ld a, (de)
+        bit 6, a
+        jp nz, find_succ_hidden
         dec de
         dec de
         pop hl
@@ -1375,6 +1474,7 @@ find_succeed:
         NEXT
 find_retry:
         dec de
+find_succ_hidden:        
         dec de
         dec de
         push hl
@@ -1510,12 +1610,14 @@ strcmp_exit:
         NEXT
 
         defword(":",1,0,colon)
-        .dw space, word, create, docol_header
-        .dw lbrac, exit
+        .dw word, create, docol_header
+        .dw latest, fetch, hidden
+        .dw rbrac, exit
 
         defword(";",1,128, semicolon)
         .dw lit, exit, comma
-        .dw rbrac, exit
+        .dw latest, fetch, hidden
+        .dw lbrac, exit
 
 
         defcode("PAGE",4,0,page)
@@ -1530,6 +1632,76 @@ strcmp_exit:
         NEXT
 
 
+        defcode("HIDDEN",6,0,hidden)
+        BC_TO_HL
+        inc hl
+        inc hl
+        ld a, 64
+        xor (hl)
+        ld (hl), a
+        pop bc
+        NEXT
+
+        defcode("?HIDDEN",7,0,qhidden)
+        BC_TO_HL
+        inc hl
+        inc hl
+        ld a, 64
+        and (hl)
+        ld b, 0
+        ld c, a
+        NEXT
+
+        defword("HIDE",4,0,hide)
+        .dw word, drop, find, hidden, exit
+
+        defword("IF",2,128,if)
+        .dw lit, zbranch, comma, here, fetch, lit, 0, comma, exit
+
+        defword("THEN",4,128,then)
+        .dw dup, here, fetch, swap, sub, swap, store, exit
+
+        defword("ELSE",4,128,else)
+        .dw lit, branch, comma, here, fetch, lit, 0, comma, swap, dup, here
+        .dw fetch, swap, sub, swap, store, exit
+
+        defword("BEGIN",5,128,begin)
+        .dw here, fetch, exit
+
+        defword("UNTIL",5,128,until)
+        .dw lit, zbranch, comma, here, fetch, sub, comma, exit
+
+        defword("AGAIN",5,128,again)
+        .dw lit, branch, comma, here, fetch, sub, comma, exit
+
+        defword("WHILE",5,128,while)
+        .dw lit, zbranch, comma, here, fetch, lit, 0, comma, exit
+
+        defword("REPEAT",5,128,repeat)
+        .dw lit, branch, comma, swap, here, fetch, sub, comma
+        .dw dup, here, fetch, swap, sub, swap, store, exit
+        
+        defword("CHAR",4,0,char)
+        .dw word, two_drop, lit, word_buf, fetch_byte, exit
+
+        defword("[COMP]",6,128,compile)
+        .dw word, find, to_cfa, comma, exit
+
+        defword("CONST",5,0,constant)
+        .dw word, create, docol_header, lit, lit, comma, comma
+        .dw lit, exit, comma, exit
+
+        defword("ALLOT",5,0,allot)
+        .dw here, fetch, swap, here, add_store, exit
+
+        defword("CELLS",4,0,cells)
+        .dw lit, 2, mult, exit
+
+        defword("VAR",3,0,variable)
+        .dw lit, 1, cells, allot, word, create, docol_header, lit, lit, comma, comma
+        .dw lit, exit, comma, exit
+
+        
         defcode("BYE",3,0,bye)
         jp done
 
@@ -1548,9 +1720,6 @@ dummy_byte: .db 0
 write_prog:
         .dw lit, dummy_byte, print_tos
         .dw lit, 10, lit, dummy_byte, store_byte, lit, dummy_byte, fetch_byte, print_tos
-        .dw done
-stars_prog:
-        .dw lit, 10, stars
         .dw done
 
 

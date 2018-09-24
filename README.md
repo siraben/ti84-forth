@@ -63,34 +63,27 @@ optional.
 - Takes advantage of system calls such as `_GetKey`, `_PutC` and more
   to come (such as drawing pixels!)
 ## Example Programs
-This Forth doesn't have a built-in `IF` statement, but we can make one ourselves.
-```forth
-: IF
-	' ZBRANCH ,
-	HERE @
-	0 ,
-; IMMED
-
-: THEN
-	DUP
-	HERE @ SWAP -
-	SWAP !
-; IMMED
-```
-
-We can use our shiny new `IF` statement in compiled words:
+Let's make a program to interactively display the keypresses of the
+user.  We have an `AKEY` word that returns the calculator keypress as
+an ASCII number on the stack using a conversion table (see `key_table`
+for the exact conversion).  The following is a valid program that you
+can enter into the calculator.
 
 ```forth
-: BAZ 3 = IF STAR STAR THEN STAR ;
-
-10 BAZ \ => *
-3 BAZ \ => ***
-```
-How about a word to see the latest word defined?
-```forth
-: NL LATEST @ >NFA SPACE PUTLN ;
-: DOUBLE DUP + ;
-NL \ => DOUBLE
+\ comments can be omitted, shown here for educational purposes
+: SHOW_KEYS \ define a new word called SHOW_KEYS
+        AKEY \ read an ASCII character from the user
+        BEGIN
+                DUP 0 <> \ test if the last key entered was not ENTER
+                         \ , as AKEY returns 0 in such a case
+        WHILE
+                DUP . SPACE SPACE EMIT CR \ duplicate the character,
+                                          \ type two spaces, print
+                                          \ it and type a newline
+                AKEY \ read another character
+        REPEAT \ repeat the body while the condition is true
+        DROP \ the last key entered was ENTER, so drop it and return
+;
 ```
 
 
@@ -160,4 +153,3 @@ pasted into the program.
   - [ ] Reading numbers (support for 0-10 inclusive hardcoded, but not
         a general algorithm)
 - [ ] Document Forth words
-
