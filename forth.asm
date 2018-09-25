@@ -69,6 +69,10 @@ start:
         b_call _ClrLCDFull
         b_call _HomeUp
 
+        ;; This b_call pushes to to the floating point stack, at memory
+        ;; location $9824, below AppBackupScreen at $9872.
+        b_call _PushRealO1
+
 
         pop bc ;; Save the place where this program needs to go.
         ld hl, prog_exit
@@ -536,14 +540,14 @@ var_latest:
         ld bc, var_latest
         NEXT
 
-        ;; Top (i.e. bottom) of the stack.
-        cell_alloc(var_sz,0)
+        ;; Base of the parameter stack.
+        cell_alloc(var_sz, 0)
         defcode("S0",2,0,sz)
         push bc
         ld bc, var_sz
         NEXT
 
-
+        ;; The "x" gets replaced with "[" at program start, see "start:"
         defcode("x",1,0,rbrac)
         ld hl, var_state
         ld (hl), 0
@@ -579,16 +583,29 @@ var_latest:
         PSP_PUSH(docol)
         NEXT
 
-        defcode("BUF", 3, 0, __buffer)
-        PSP_PUSH(str_buf)
+        defcode("BUF", 3, 0, __string_buffer)
+        PSP_PUSH(string_buffer)
+        NEXT
+
+        defcode("BUFSZ", 5, 0, __string_buffer_size)
+        PSP_PUSH(STRING_BUFFER_SIZE)
         NEXT
 
         defcode("WBUF", 4, 0, __word_buffer)
-        PSP_PUSH(word_buf)
+        PSP_PUSH(word_buffer)
+        NEXT
+
+
+        defcode("WBUFSZ", 6, 0, __word_buffer_size)
+        PSP_PUSH(word_buffer)
         NEXT
 
         defcode("R0", 2, 0, rz)
         PSP_PUSH(return_stack_top)
+        NEXT
+
+        defcode("H0", 2, 0, hz)
+        PSP_PUSH(AppBackupScreen)
         NEXT
 
         defcode("F_IMMED",7,0,__F_IMMED)
@@ -601,6 +618,11 @@ var_latest:
 
         defcode("F_LENMASK",9,0,__F_LENMASK)
         PSP_PUSH(F_LENMASK)
+        NEXT
+
+
+        defcode("SCRATCH",7,0,__scratch)
+        PSP_PUSH(scratch)
         NEXT
 
 
@@ -645,9 +667,10 @@ _comma:
         ;; Actually, we do have a stack pointer, but it's not probably
         ;; what is normally expected of Forths.
         defcode("SP@", 3, 0, sp_fetch)
+        push bc
         ld (var_sp), sp
         ld hl, (var_sp)
-        push hl
+        HL_TO_BC
         NEXT
 
 var_sp:
@@ -656,7 +679,8 @@ var_sp:
         defcode("SP!", 3, 0, sp_store)
         BC_TO_HL
         ld sp, hl
-        NEXt
+        pop bc
+        NEXT
         
         defcode("BRANCH", 6, 0, branch)
         ld a, (de)
@@ -950,56 +974,207 @@ key_table:
 .db "        " ;; 248-255
 
 
+
+;; mul16By16 [Maths]
+;;  Performs an unsigned multiplication of DE and BC.
 ;; Inputs:
 ;;  DE: Multiplier
 ;;  BC: Multiplicand
 ;; Outputs:
 ;;  DEHL: Product of DE and BC.
-#macro mul16By16Iter
-        add hl, hl
-        rl e
-        rl d
-        jr nc, $ + 6
-        add hl, bc
-        jr nc, $ + 3
-        inc de
-#endmacro
+mul16By16:
 
         defcode("*",1,0,mult)
         PUSH_DE_RS
         pop de ;; get the second element from the stack
-        ld hl, 0
-        sla e
-        rl d
-        jr nc, $ + 4
-        BC_TO_HL
-    
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
-        mul16By16Iter
         
+    push bc
+        push af
+            ld hl, 0
+            ld a, b
+            ld b, h
+            or a
+                        rla \ jr nc, $+5 \ ld h, d \ ld l, e
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+            ld b, a
+            push hl
+            ld hl, 0
+            ld a, c
+            ld c, h
+            or a
+                        rla \ jr nc, $+5 \ ld h, d \ ld l, e
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+            ld d, b
+            pop bc
+            ld e, a
+            ld a, c
+            add a, h
+            ld h, a
+            ld a, e
+            adc a, b
+            ld e, a
+            jr nc, $ + 3
+            inc d
+        pop af
+    pop bc
+
+       
         HL_TO_BC
         POP_DE_RS
         NEXT
+
+
+
+        ;; ( a b -- quotient remainder )
+        defcode("/MOD", 4, 0, divmod)
+        PUSH_DE_RS
+        ld d, b
+        ld e, c
+        pop bc
+        ld a, b
+divACbyDE:
+        ld hl, 0
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+        .db $CB, $31 ; sll c
+        rla
+        adc hl, hl
+        sbc hl, de
+        jr nc, $+4
+        add hl, de
+        dec c
+
+        ld b, a
+        ;; Quotient, then remainder.
+        push bc
+        HL_TO_BC
+        POP_DE_RS
+        NEXT
+     
         
-        defword("TESTA", 5, 9, test_arith)
+        defword("TESTA", 5, 0, test_arith)
         .dw dup, four_plus, print_tos
         .dw dup, four_minus, print_tos
         .dw dup, one_plus, print_tos
         .dw dup, one_minus, print_tos
         .dw print_tos, exit
+
+        ;; Ad-hoc solution to read a number.
 
         defword("0",1,0,zero)
         .dw lit, 0, exit
@@ -1073,12 +1248,13 @@ key_table:
 ;; Input: none
 ;; Output: none
 ;; Side effect:
-;; str_buf contains the user input.
+;; string_buffer contains the user input.
 ;; gets_ptr points to the start of the buffer
 
 ;; We also want immediate feedback to the user.
-;; 64 spaces
-str_buf: .db "                                                                ",0
+#define STRING_BUFFER_SIZE 128
+;; 128 spaces
+string_buffer: .db "                                                                                                                                ",0
 gets_ptr: .dw 0
 
         defcode("GETS",4,0,get_str_forth)
@@ -1091,7 +1267,7 @@ gets_ptr: .dw 0
         
 get_str:
         ld hl, gets_ptr
-        ld de, str_buf
+        ld de, string_buffer
 
         ld (hl), e
         inc hl
@@ -1135,8 +1311,16 @@ no_chars:
 not_enter:
         ;; Maybe it's the delete key?
         cp kDel
+        jp z, is_del
         jp nz, not_del
 
+        ;; For convenience, the left arrow key in alpha mode also
+        ;; works as a DEL.
+
+        cp 2
+        jp nz, not_del
+
+is_del:
         ;; Yep.  Let's give some feedback.
         ld a, b
         or a
@@ -1197,17 +1381,21 @@ clear_loop:
         ld (hl), b
         dec hl
         ld (hl), c
-        ld de, str_buf
+        ld de, string_buffer
         jp key_loop
         
 not_clear:
         ld c, a
         ld a, b
-        cp BUFSIZE
+        cp STRING_BUFFER_SIZE
         jr z, key_loop
         ld a, c
 
+        ;; Special keys that actually write a space.
         cp kSpace
+        jp z, write_space
+
+        cp 1 ;; right arrow, alpha mode
         jp z, write_space
 
         ;; Convert to ASCII.
@@ -1220,7 +1408,7 @@ not_clear:
         pop de
         
         ld a, (hl)
-        ;; We got a space back, so it's not printable.  Try again.
+        ;; We got a space back as per the table, so it's not printable.  Try again.
         cp ' '
         jp z, key_loop
         jp write_char
@@ -1264,7 +1452,7 @@ unget_char:
         push hl
         push de
         ld hl, (gets_ptr)
-        ld de, str_buf
+        ld de, string_buffer
         b_call _CpHLDE
         scf
         jr z, unget_char_done
@@ -1284,16 +1472,16 @@ unget_char_done:
 
 ;; ( -- base_addr len )
 #define BUFSIZE  64
-word_buf: .db "                                ",0
-word_buf_ptr: .dw 0
+word_buffer: .db "                                ",0
+word_buffer_ptr: .dw 0
         defcode("WORD",4,0,word)
         ;; Save IP and TOS.
         push bc
         push de
 word_restart:
-        ld hl, word_buf_ptr
-        ld de, word_buf
-        ;; Initialize word_buf_ptr to point at the actual start.
+        ld hl, word_buffer_ptr
+        ld de, word_buffer
+        ;; Initialize word_buffer_ptr to point at the actual start.
         ld (hl), e
         inc hl
         ld (hl), d
@@ -1334,7 +1522,7 @@ skip_comment:
 actual_word:
         ld c, 1
         ;; A contains the character.        
-        ld hl, (word_buf_ptr)
+        ld hl, (word_buffer_ptr)
 actual_word_write:        
         ld (hl), a
 actual_word_loop:
@@ -1354,7 +1542,7 @@ word_done:
         xor a
         ld (hl), a
         pop de
-        ld hl, word_buf
+        ld hl, word_buffer
         ld b, 0  ;; c should contain the number of characters.
         push hl
         NEXT
@@ -1535,6 +1723,24 @@ strcmp_exit:
         pop hl
         ret
 
+        defcode("WB",2,0,writeback)
+        push bc
+        push de
+        b_call _PopRealO1 ;; from the floating point stack
+        b_call _ChkFindSym
+    
+        ld    hl, data_start - $9D95 + 4    ; have to add 4 because of tasmcmp token
+                                            ; (2 bytes) and for size bytes (2 bytes)
+        add    hl, de        ;hl now points to data location in original program.
+        ex    de, hl         ;write back.
+        ld    hl, data_start
+        ld    bc, data_end - data_start
+        ldir
+        
+        pop de
+        pop bc
+        NEXT
+
 
         defword(">DFA",4,0,to_dfa)
         .dw to_cfa, four_plus, one_minus, exit
@@ -1591,6 +1797,7 @@ strcmp_exit:
         defcode("DOCOL_H",7,0,docol_header)
         push de
         ld de, (var_here)
+        ;; Opcode of CALL
         ld a, $CD
         ld (de), a
         inc de
@@ -1682,7 +1889,7 @@ strcmp_exit:
         .dw dup, here, fetch, swap, sub, swap, store, exit
         
         defword("CHAR",4,0,char)
-        .dw word, two_drop, lit, word_buf, fetch_byte, exit
+        .dw word, two_drop, lit, word_buffer, fetch_byte, exit
 
         defword("[COMP]",6,128,compile)
         .dw word, find, to_cfa, comma, exit
@@ -1697,10 +1904,30 @@ strcmp_exit:
         defword("CELLS",4,0,cells)
         .dw lit, 2, mult, exit
 
+        defword("RECURSE",7,128,recurse)
+        .dw latest, fetch, to_cfa, comma, exit
+
         defword("VAR",3,0,variable)
         .dw lit, 1, cells, allot, word, create, docol_header, lit, lit, comma, comma
         .dw lit, exit, comma, exit
 
+
+;; Creating an editor.  Rough idea: We want to have a block-editing
+;; system to be able to save and read programs.  We use the small
+;; variable width font instead of the large one, so that we may place
+;; it on the screen.
+
+        defword("WR", 2, 0, write)
+        ;; The second get_str_forth is necessary as we don't want the
+        ;; interpreter to read the entered text
+        .dw cr, get_str_forth, cr, lit, word_buffer, __string_buffer_size, cmove, get_str_forth, exit
+        
+        defcode("PN", 2, 0, print_nice)
+        BC_TO_HL
+        b_call _VPutS
+        b_call _NewLine
+        pop bc        
+        NEXT
         
         defcode("BYE",3,0,bye)
         jp done
@@ -1838,7 +2065,6 @@ return_stack_top  .EQU    AppBackUpScreen+764
 prog_exit: .dw 0
 save_sp:   .dw 0
 
-
 ;; We should be able to define an interpreter in Forth that supports compiled code if we try.
 prog:
         .dw get_str_forth
@@ -1851,6 +2077,13 @@ prog:
 
 getstr_prog:
         .dw get_str_forth, cr
-        .dw word, print_tos, cr, lit, word_buf, putstrln
-        .dw word, print_tos, cr, lit, word_buf, putstrln
+        .dw word, print_tos, cr, lit, word_buffer, putstrln
+        .dw word, print_tos, cr, lit, word_buffer, putstrln
         .dw done
+
+;; Statically allocate 2K bytes of RAM.
+data_start:
+scratch:
+        .fill 1024, 0
+        .fill 1024, 0
+data_end
