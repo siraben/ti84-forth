@@ -109,7 +109,7 @@ done_cont:
 
         b_call _GetKey
         b_call _ClrScrnFull
-
+        b_call _PopRealO1
         ;; Even if we blew up the stack during execution, we can try to restore it and exit cleanly.
         ld sp, (save_sp)
         ld hl, (prog_exit)
@@ -273,6 +273,23 @@ bit_cache: .dw 0
         ld b, a
         NEXT
 
+        defcode("<<",2, 0, shift_left)
+        BC_TO_HL
+        add hl, hl
+        HL_TO_BC
+        NEXT
+
+        defcode(">>",2,0, shift_right)
+        push de
+        ld d, b
+        ld e, c
+        srl d
+        rr e
+        ld b, d
+        ld c, e
+        pop de
+        NEXT
+        
         ;; Bitwise NOT.
         defcode("INVERT",6,0,invert)
         ld a, c
@@ -542,7 +559,7 @@ var_latest:
 
         ;; Base of the parameter stack.
         cell_alloc(var_sz, 0)
-        defcode("S0",2,0,sz)
+        defcode("SP0",3,0,sz)
         push bc
         ld bc, var_sz
         NEXT
@@ -600,7 +617,7 @@ var_latest:
         PSP_PUSH(word_buffer)
         NEXT
 
-        defcode("R0", 2, 0, rz)
+        defcode("RP0", 3, 0, rz)
         PSP_PUSH(return_stack_top)
         NEXT
 
@@ -667,6 +684,8 @@ _comma:
         ;; Actually, we do have a stack pointer, but it's not probably
         ;; what is normally expected of Forths.
         defcode("SP@", 3, 0, sp_fetch)
+
+        ;; Since we can't do ld hl, sp
         push bc
         ld (var_sp), sp
         ld hl, (var_sp)
@@ -675,11 +694,20 @@ _comma:
 
 var_sp:
         .dw 0
-        
+
         defcode("SP!", 3, 0, sp_store)
         BC_TO_HL
         ld sp, hl
         pop bc
+        NEXT
+
+
+        defcode("RP@",3,0,rp_fetch)
+        push ix
+        NEXT
+
+        defcode("RP!",3,0,rp_store)
+        pop ix
         NEXT
         
         defcode("BRANCH", 6, 0, branch)
@@ -877,8 +905,12 @@ key_asm:
         pop bc
         NEXT
 
-        defword("?", 1, 0, peek_addr)
-        .dw fetch, print_tos, exit
+        defcode("?", 1, 0, peek_addr)
+        BC_TO_HL
+        ld c, (hl)
+        inc hl
+        ld b, (hl)
+        NEXT
 
         ;; Convert a key code into an ASCII character by way of a
         ;; lookup table.
@@ -1293,6 +1325,10 @@ key_loop:
 
         ;; Got [ENTER].  Finish up.  Maybe the user hit [ENTER]
         ;; without entering anything, we need to check for that too.
+
+        ;; We should echo enter.
+        b_call _NewLine
+        
         ld a, b
         or a
         jp z, no_chars
@@ -1448,6 +1484,12 @@ get_char_end:
         pop hl
         ret
 
+
+        defcode("UNGETC", 6, 0, unget_char_forth)
+
+        call unget_char
+
+        NEXT
 unget_char:
         push hl
         push de
@@ -1727,6 +1769,7 @@ strcmp_exit:
         push bc
         push de
         b_call _PopRealO1 ;; from the floating point stack
+        b_call _PushRealO1
         b_call _ChkFindSym
     
         ld    hl, data_start - $9D95 + 4    ; have to add 4 because of tasmcmp token
@@ -1859,6 +1902,40 @@ strcmp_exit:
         ld c, a
         NEXT
 
+        defword("MOD",3,0, mod)
+        .dw divmod, swap, drop, exit
+
+        defword("/",1,0,div)
+        .dw divmod, drop, exit
+
+        defword("NEGATE",6,0,negate)
+        .dw lit, 0, swap, sub, exit
+
+        defword("TRUE",4,0,true_val)
+        .dw lit, 1, exit
+
+        defword("FALSE",5,0,false_val)
+        .dw lit, 0, exit
+
+        defword("NOT",3,0,not)
+        .dw zeql, exit
+
+        defword("LITERAL",7,128,literal)
+        .dw tick, lit, comma, comma, exit
+
+        defcode("NIP",3,0,nip)
+        pop hl
+        NEXT
+        
+        defcode("TUCK",4,0,tuck)
+        pop hl
+        push bc
+        push hl
+        NEXT
+
+        defword("ID.",3,0,id_dot)
+        .dw lit, 3, add, putstrln, exit
+
         defword("HIDE",4,0,hide)
         .dw word, drop, find, hidden, exit
 
@@ -1884,7 +1961,7 @@ strcmp_exit:
         defword("WHILE",5,128,while)
         .dw lit, zbranch, comma, here, fetch, lit, 0, comma, exit
 
-        defword("REPEAT",5,128,repeat)
+        defword("REPEAT",6,128,repeat)
         .dw lit, branch, comma, swap, here, fetch, sub, comma
         .dw dup, here, fetch, swap, sub, swap, store, exit
         
@@ -1912,6 +1989,27 @@ strcmp_exit:
         .dw lit, exit, comma, exit
 
 
+
+ 
+        defword("DO",2,128, do)
+        .dw here, fetch, lit, to_r, comma, lit, to_r, comma, exit
+
+        defword("LOOP",4,128, loop)
+        .dw lit, from_r, comma, lit, from_r, comma, lit, one_plus, comma, lit, two_dup, comma
+        .dw lit, eql, comma, lit, zbranch, comma, here, fetch,  sub, comma, lit, two_drop, comma, exit
+
+
+        defword("+LOOP",5,128, add_loop)
+        .dw lit, from_r, comma, lit, from_r, comma, lit, rot, comma, lit, add, comma, lit, two_dup, comma
+        .dw lit, eql, comma, lit, zbranch, comma, here, fetch,  sub, comma, lit, two_drop, comma, exit
+
+
+        defcode("I",1,0,curr_loop_index)
+        push bc
+        ld c, (ix + 2)
+        ld b, (ix + 3)
+        NEXT
+
 ;; Creating an editor.  Rough idea: We want to have a block-editing
 ;; system to be able to save and read programs.  We use the small
 ;; variable width font instead of the large one, so that we may place
@@ -1923,6 +2021,8 @@ strcmp_exit:
         .dw cr, get_str_forth, cr, lit, word_buffer, __string_buffer_size, cmove, get_str_forth, exit
         
         defcode("PN", 2, 0, print_nice)
+        ld hl, 0
+        ld (PenCol), hl
         BC_TO_HL
         b_call _VPutS
         b_call _NewLine
