@@ -1,6 +1,9 @@
 .NOLIST
 
-;; Doesn't care what's in HL.
+;;; Macros to make life easier.
+
+;; NEXT, the basis of many Forth CODE words.
+
 #define NEXT ld a, (de)
 #defcont   \ ld l, a
 #defcont   \ inc de
@@ -9,18 +12,19 @@
 #defcont   \ inc de
 #defcont   \ jp (hl)
 
-;; Verified correct.
+;; Push BC to the return stack.
 #define PUSH_BC_RS dec ix
 #defcont         \ ld (ix + 0), b
 #defcont         \ dec ix
 #defcont         \ ld (ix + 0), c
 
+;; Pop the top entry of the return stack to BC.
 #define POP_BC_RS  ld c, (ix + 0)
 #defcont         \ inc ix
 #defcont         \ ld b, (ix + 0)
 #defcont         \ inc ix
 
-;; Verified correct.
+;; Push HL to the return stack.
 #define PUSH_HL_RS dec ix
 #defcont         \ ld (ix + 0), h
 #defcont         \ dec ix
@@ -31,16 +35,20 @@
 #defcont         \ ld h, (ix + 0)
 #defcont         \ inc ix
 
-;; Verified correct.
+;; Push DE to the return stack.
 #define PUSH_DE_RS dec ix
 #defcont         \ ld (ix + 0), d
 #defcont         \ dec ix
 #defcont         \ ld (ix + 0), e
 
+;; Pop the top entry of the return stack to DE.
 #define POP_DE_RS  ld e, (ix + 0)
 #defcont         \ inc ix
 #defcont         \ ld d, (ix + 0)
 #defcont         \ inc ix
+
+
+;; Convience macros to transfer 16-bit register contents.
 
 #define BC_TO_HL ld h, b
 #defcont       \ ld l, c
@@ -54,6 +62,7 @@
 #define BC_TO_DE ld d, b
 #defcont       \ ld e, c
 
+;; Our register allocations
 ;; BC = TOS   IX = RSP
 ;; DE = IP    IY = UP
 ;; HL = W     SP = PSP
@@ -69,7 +78,7 @@ start:
         b_call _ClrLCDFull
         b_call _HomeUp
 
-        ;; This b_call pushes to to the floating point stack, at memory
+        ;; This b_call pushes to the floating point stack, at memory
         ;; location $9824, below AppBackupScreen at $9872.
         b_call _PushRealO1
 
@@ -482,6 +491,7 @@ bit_cache: .dw 0
         pop hl
         ld a, l
         ld (bc), a
+        pop bc
         NEXT
         
         defcode("C@", 2,0, fetch_byte)
@@ -612,7 +622,6 @@ var_latest:
         PSP_PUSH(word_buffer)
         NEXT
 
-
         defcode("WBUFSZ", 6, 0, __word_buffer_size)
         PSP_PUSH(word_buffer)
         NEXT
@@ -637,11 +646,13 @@ var_latest:
         PSP_PUSH(F_LENMASK)
         NEXT
 
-
-        defcode("SCRATCH",7,0,__scratch)
+        defcode("SCR",3,0,__scratch)
         PSP_PUSH(scratch)
         NEXT
 
+        defcode("PLOTSS",6,0,__plot_s_screen)
+        PSP_PUSH(plotSScreen)
+        NEXT
 
         defcode("'",1,0,tick)
         ld a, (de)
@@ -798,6 +809,13 @@ zbranch_fail:
         jp nc, tru
         jp fal
 
+        defcode("<=", 2,0,less_eq)
+        BC_TO_HL
+        pop bc
+        call cpHLBC
+        jp nc, tru
+        jp fal
+
         defcode("<",1,0,less_than)
         pop hl
         call cpHLBC
@@ -819,7 +837,7 @@ gt_check_neq:
         jp tru        
 
         defcode("0=",2,0,zeql)
-        ld hl,0
+        ld hl, 0
         call cpHLBC
         jp c, fal
         jp tru
@@ -839,7 +857,7 @@ tru:
         
 ;; Place a false value on the top of the stack.
 fal:
-        ld bc,0
+        ld bc, 0
         NEXT
 
 ;; Refer to https://github.com/KnightOS/kernel/blob/830f4ac87c50fa42faf634ab3ee476f0ab85b741/src/00/strings.asm
@@ -869,11 +887,6 @@ str_println:
 str_print:
         b_call _PutS
         ret
-
-        defcode("UPRESS", 6, 0, you_pressed)
-        ld hl, you_pressed_msg
-        call str_println
-        NEXT
 
         ;; key emit should output the same character that was input,
         ;; by the way
@@ -1348,12 +1361,11 @@ not_enter:
         ;; Maybe it's the delete key?
         cp kDel
         jp z, is_del
-        jp nz, not_del
 
         ;; For convenience, the left arrow key in alpha mode also
         ;; works as a DEL.
 
-        cp 2
+        cp kLeft
         jp nz, not_del
 
 is_del:
@@ -1431,7 +1443,7 @@ not_clear:
         cp kSpace
         jp z, write_space
 
-        cp 1 ;; right arrow, alpha mode
+        cp kRight ;; right arrow, alpha mode
         jp z, write_space
 
         ;; Convert to ASCII.
@@ -1590,38 +1602,6 @@ word_done:
         NEXT
 
 
-;; strcmp [Strings]
-;;  Determines if two strings are equal, and checks alphabetical sort order.
-;; Inputs:
-;;  HL: String pointer
-;;  DE: String pointer
-;; Outputs:
-;;  Z: Set if equal, reset if not equal
-;;  C: Set if string HL is alphabetically earlier than string DE
-_strcmp:
-        push hl
-        push de
-_strcmp_loop:
-        ld a, (de)
-        or a
-        jr z, _strcmp_end
-        cp (hl)
-        jr nz, _strcmp_exit
-        inc hl
-        inc de
-        jr _strcmp_loop
-_strcmp_end:
-        ld a, (hl)
-        or a
-_strcmp_exit:
-        ccf
-        pop de
-        pop hl
-        POP_DE_RS
-        jp z, tru
-        jp nz, fal
-
-
         ;; Is this word immediate? (assuming it's a pointer returned by FIND)
         defcode("IMMED?",6,0, immedq)
         inc bc
@@ -1632,7 +1612,7 @@ _strcmp_exit:
         jp tru
 
         ;; Make the last word immediate
-        defcode("IMMED",5,0, immediate)
+        defcode("IMMED",5,128, immediate)
         ld hl, (var_latest)
         inc hl
         inc hl
@@ -1666,17 +1646,18 @@ _strcmp_exit:
         NEXT
 
         ;; Are two strings equal?
-        ;; ( s1 s2 -- b )
+        ;; ( s1 s2 -- bool )
         defcode("STR=",4,0,streql)
         PUSH_DE_RS
         pop de
         BC_TO_HL
-        pop bc
-        jp _strcmp ;; we're offhanding this to the strcmp routine
+        call strcmp
+        jp z, tru
+        jp fal
 
-
-        ;; ( pointer to string -- pointer to word )
+        ;; ( string-ptr length-- pointer to word )
         defcode("FIND",4,0,find)
+        pop bc ;; FIXME: Check length.
         push de
         BC_TO_HL
         ld de, (var_latest)
@@ -1715,7 +1696,7 @@ find_succ_hidden:
         ld h, a
         dec de
         ld a, l
-        cp 0 ;; or a
+        or a
         jp z, find_maybe_fail
 
 find_retry_cont:        
@@ -1784,6 +1765,23 @@ strcmp_exit:
         pop bc
         NEXT
 
+
+        ;; How many bytes have we used?
+        defword("USED",4,0,used)
+        .dw here, fetch, hz, sub, exit
+
+        ;; Save the current state into the scratch buffer.
+        ;; Assuming the current state is the data after the buffer 
+        defword("SIMG",4,0,save_image)
+        .dw here, fetch, lit, save_here, store
+        .dw latest, fetch, lit, save_latest, store
+        .dw __scratch, hz, used, cmove, writeback, exit
+
+        ;; Load the scratch buffer back into the current state.
+        defword("LIMG",4,0,load_image)
+        .dw lit, save_here, fetch, here, store
+        .dw lit, save_latest, fetch, latest, store
+        .dw hz, lit, scratch, lit, save_here, fetch, hz, sub, cmove, exit
 
         defword(">DFA",4,0,to_dfa)
         .dw to_cfa, four_plus, one_minus, exit
@@ -1937,7 +1935,7 @@ strcmp_exit:
         .dw lit, 3, add, putstrln, exit
 
         defword("HIDE",4,0,hide)
-        .dw word, drop, find, hidden, exit
+        .dw word, find, hidden, exit
 
         defword("IF",2,128,if)
         .dw lit, zbranch, comma, here, fetch, lit, 0, comma, exit
@@ -1987,9 +1985,6 @@ strcmp_exit:
         defword("VAR",3,0,variable)
         .dw lit, 1, cells, allot, word, create, docol_header, lit, lit, comma, comma
         .dw lit, exit, comma, exit
-
-
-
  
         defword("DO",2,128, do)
         .dw here, fetch, lit, to_r, comma, lit, to_r, comma, exit
@@ -2003,11 +1998,107 @@ strcmp_exit:
         .dw lit, from_r, comma, lit, from_r, comma, lit, rot, comma, lit, add, comma, lit, two_dup, comma
         .dw lit, eql, comma, lit, zbranch, comma, here, fetch,  sub, comma, lit, two_drop, comma, exit
 
+        defword("FORGET",6,0,forget)
+        .dw word, find, dup, fetch, latest, store, here, store, exit
+
 
         defcode("I",1,0,curr_loop_index)
         push bc
         ld c, (ix + 2)
         ld b, (ix + 3)
+        NEXT
+
+        defcode("PLOT",4,0,plot)
+        push bc
+        push de
+        b_call _GrBufCpy
+        pop de
+        pop bc
+        NEXT
+
+
+
+        ;; ( x y -- addr bitmask )
+        defcode("GETP", 4, 0, get_pixel_forth)
+        ld l, c
+        pop bc
+        ld a, c
+        push de
+
+        call get_pixel
+        pop de
+        push hl
+        ld b, 0
+        ld c, a
+        NEXT
+
+;; Given the x-coordinate in A and the y-coordinate in L, return in HL
+;; the address and a bitmask in A.
+get_pixel:
+        ld     h, 0
+        ld     d, h
+        ld     e, l
+        add    hl, hl
+        add    hl, de
+        add    hl, hl
+        add    hl, hl
+    
+        ld     e, a
+        srl    e
+        srl    e
+        srl    e
+        add    hl, de
+    
+        ld     de, plotSScreen
+        add    hl, de
+        and 7
+        ld a, $80
+        ret z
+        ld b, a
+        
+get_pixel_loop:
+        rrca
+        djnz get_pixel_loop
+        ret
+
+
+        ;; Darken a pixel
+        defcode("DARKP",5,0,darken_pixel)
+        ld l, c
+        pop bc
+        ld a, c
+        push de
+        call   get_pixel
+        or     (hl)
+        ld     (hl), a
+        pop de        
+        pop bc
+        NEXT
+        
+        
+        defcode("TOGP",4,0,toggle_pixel)
+        ld l, c
+        pop bc
+        ld a, c
+        push de
+        call   get_pixel
+        xor    (hl)
+        ld     (hl), a
+        pop de                
+        pop bc
+        NEXT
+
+        defcode("LITP",4,0,lighten_pixel)
+        ld l, c
+        pop bc
+        ld a, c
+        push de
+        call   get_pixel
+        cpl
+        and    (hl)
+        ld     (hl), a
+        pop de                      
+        pop bc
         NEXT
 
 ;; Creating an editor.  Rough idea: We want to have a block-editing
@@ -2036,114 +2127,6 @@ strcmp_exit:
 	defword("STAR", 4, 0, star)
 	.dw lit, 42, emit, exit
 
-    
-you_pressed_msg: .db "You pressed:", 0
-
-key_count_prog:
-        .dw ask, key, you_pressed, print_tos, done
-
-dummy_byte: .db 0
-
-write_prog:
-        .dw lit, dummy_byte, print_tos
-        .dw lit, 10, lit, dummy_byte, store_byte, lit, dummy_byte, fetch_byte, print_tos
-        .dw done
-
-
-;; Type out a message (doesn't store it in data, though, just echoes
-;; to the screen).
-        
-type_prog:
-        .dw akey, dup, emit
-        .dw lit, 0, eql, zbranch, -14, done
-
-;; Prints out the keycode entered, the character with that code.
-;; Then converts the keycode into an ASCII character with the to_ascii word
-;; Then prints the ASCII code and the character.
-
-;; ...
-;; <KEYCODE> <EMITTED KEYCODE> <TO_ASCII CONVERTED CHARACTER> <EMITTED CONVERTED NUMBER>
-;; <KEYCODE> <EMITTED KEYCODE> <TO_ASCII CONVERTED CHARACTER> <EMITTED CONVERTED NUMBER>
-;; ...
-
-;; Handy for exploring table lookups and the to_ascii word
-key_prog:
-        .dw key, dup, dup, dup, print_tos, space, emit, space, to_ascii, dup
-        .dw print_tos, space, emit, cr
-        .dw lit, kEnter, eql
-        .dw zbranch, -36
-        .dw done
-
-;; Demonstrate user input and random (?) number generation.
-what_name_str: .db "What is your",0
-what_name_str2: .dw "name?",0
-luck_num_str: .db "Your lucky",0
-luck_num_str2: .db "numbers are",0
-hi_str: .db "Hello, ",0
-fun_prog:
-        .dw lit, what_name_str, putstrln
-        .dw lit, what_name_str2, putstrln
-        .dw word, drop, cr
-        .dw lit, hi_str, putstr, space
-        .dw putstrln
-        .dw lit, luck_num_str, putstrln
-        .dw lit, luck_num_str2, putstrln
-        .dw rand, print_tos, space, rand, print_tos
-        .dw done
-
-;; Demonstrate word input and string comparsion.
-;; msg1: .db "SECRET",0
-;; guess: .db "Guess my secret:",0
-;; secret_prog:
-;;         .dw lit, guess, putstrln, lit, msg1
-;;         .dw word, drop, lit, buffer, streql, print_tos
-;;         .dw done
-        
-cfa_prog:
-        .dw latest, fetch, dup, lit, 3, add, putstrln
-        .dw dup, print_tos, cr
-        .dw to_cfa, print_tos,cr
-        .dw done
-
-;; Test if CREATE works properly.
-create_prog:
-        .dw here, fetch, print_tos, cr
-        .dw word, cr, create, here, fetch, print_tos, cr
-        .dw lit, 1234, comma
-        .dw here, fetch, print_tos, cr
-        .dw here, fetch, one_minus, one_minus, fetch, print_tos, cr
-        .dw done
-        
-;; Demonstrate that we can perform searches of the words.
-search_msg: .db "Search: ",0
-is_defined_msg: .db " is defined at memory location ",0
-is_not_defined_msg: .db " is not defined.",0
-the_word_msg: .db "The word ",0
-repeat_msg: .db "Repeat?(Y/N) ",0
-any_key_exit_msg: .db "Press any key to exit...",0
-;; 46 emit = putchar('.')
-;; search_prog:
-;;         .dw cr
-;;         .dw lit, search_msg, putstrln
-;;         .dw word, drop, cr, find, dup
-;;         .dw zbranch, 32, lit, the_word_msg, putstr, dup, to_nfa
-;;         .dw putstr, lit, is_defined_msg, putstrln, print_tos, lit, 46, emit
-;;         .dw branch, 22, drop, lit, the_word_msg, putstr, lit, buffer, putstr
-;;         .dw lit, is_not_defined_msg, putstr, cr
-;;         .dw lit, repeat_msg, putstr, key, to_ascii, dup, emit, lit, 89, eql, zbranch, 6, branch, -100
-;;         .dw cr, lit, any_key_exit_msg, putstrln, done
-        
-;; ;; We're going to see if the dictionary was constructed correctly.
-;; ;; Hold the right arrow key to fast forward through this.
-;; words_prog:
-;;         .dw latest, fetch, dup, lit, 3, add, putstr, space
-;;         .dw fetch, dup
-;;         .dw zbranch, 22
-;;         .dw dup, lit, 3, add, putstr, space
-;;         .dw key, drop
-;;         .dw branch, -26
-;;         .dw drop, done
-
 setup_data_segment:
         ld de, AppBackUpScreen
         ld hl, var_here
@@ -2154,13 +2137,8 @@ setup_data_segment:
         ld ix, return_stack_top
         ret
 
-;; A REPL!  Only works with immediate words (i.e. no definitions yet),
-;; but nevertheless it's amazing!
 ok_msg: .db "ok",0
 undef_msg: .db " ?",0
-repl_prog:
-        .dw word, drop, find, dup, zbranch, 20, to_cfa, space ;; drop the length before finding it (FIXME)
-        .dw execute, space, lit, ok_msg, putstrln, branch, -28, drop, lit, undef_msg, putstrln, branch, -40, done
 return_stack_top  .EQU    AppBackUpScreen+764
 prog_exit: .dw 0
 save_sp:   .dw 0
@@ -2168,17 +2146,11 @@ save_sp:   .dw 0
 ;; We should be able to define an interpreter in Forth that supports compiled code if we try.
 prog:
         .dw get_str_forth
-        .dw word, drop, find, dup, zbranch, 48
+        .dw word, find, dup, zbranch, 48
         .dw lit, var_state, fetch, zbranch, 18, to_cfa, execute, space
-        .dw lit, ok_msg, putstrln, branch, -36, dup, immedq, zbranch, 6
+        .dw lit, ok_msg, putstrln, branch, -34, dup, immedq, zbranch, 6
         .dw branch, -26
-        .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -68
-        .dw done
-
-getstr_prog:
-        .dw get_str_forth, cr
-        .dw word, print_tos, cr, lit, word_buffer, putstrln
-        .dw word, print_tos, cr, lit, word_buffer, putstrln
+        .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -66
         .dw done
 
 ;; Statically allocate 2K bytes of RAM.
@@ -2186,4 +2158,6 @@ data_start:
 scratch:
         .fill 1024, 0
         .fill 1024, 0
+save_latest: .dw star
+save_here:   .dw scratch
 data_end

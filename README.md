@@ -1,17 +1,19 @@
 # A Forth for the TI-84+
 
-Hi!  This is an ongoing project to bring a Forth to the TI-83+/TI-84+
+Hi!  This is an ongoing project to bring a Forth to the TI-84+
 calculator series.
 
 ## Why TI-84+?
 This is a calculator that is more or less ubiquitous among high school
 and university students throughout the world.  It's not going extinct
 anytime soon (expect perhaps to newer models such as the TI-84 CE).
-Let's face it.  TI-BASIC is not a nice language; it's slow and suffers
-from lack of low-level bindings.  There's no REPL.  We want a language
-that gives the programmer the full power of the calculator—treating it
-as the computer it is.  In fact people already do, by writing assembly
-programs, but they also have disadvantages.
+But let's face it.  TI-BASIC is not a nice language; it's slow and
+suffers from lack of low-level bindings.  There's no REPL.  We want a
+language that gives the programmer the full power of the
+calculator—treating it as the computer it is.  In fact people already
+do, by writing assembly programs, but assembly has its share of
+disadvantages.
+
 
 ## Why Forth?
 Assembly is painful to program in.  Programs crash at the slightest
@@ -69,74 +71,22 @@ this.
   Write to this memory location and execute the `WB` word to save it!
 
 ## Example Programs
-### Interactive Keypresses
-Let's make a program to interactively display the keypresses of the
-user.  We have an `AKEY` word that returns the calculator keypress as
-an ASCII number on the stack using a conversion table (see `key_table`
-for the exact conversion).  The following is a valid program that you
-can enter into the calculator.
-
-```forth
-\ comments can be omitted, shown here for educational purposes
-: SHOW_KEYS \ define a new word called SHOW_KEYS
-        AKEY \ read an ASCII character from the user
-        BEGIN
-                DUP 0 <> \ test if the last key entered was not ENTER
-                         \ , as AKEY returns 0 in such a case
-        WHILE
-                DUP . SPACE SPACE EMIT CR \ duplicate the character,
-                                          \ type two spaces, print
-                                          \ it and type a newline
-                AKEY \ read another character
-        REPEAT \ repeat the body while the condition is true
-        DROP \ the last key entered was ENTER, so drop it and return
-;
-```
-
-### Factorial
-Forth is simple, and easy to understand.  Programs are easy to type,
-just use the calculator's keypad.
-```forth
-: FACT
-  DUP 0= IF
-    DROP 1         \ base case
-  ELSE
-    DUP 1- RECURSE \ compute factorial of n - 1
-    *              \ and multiply with n
-  THEN
-;
-\ 5 FACT . => 120
-```
-
-### Printing Strings
-And gives the programmer the freedom to _change_ the language's
-semantics.  That's why there's no formal grammar.  It can be anything
-you want.
-```forth
-: ." BEGIN
-    KEY DUP 10 3 * 4 + = IF \ 10 3 * 4 + is equivalent to 34, but I
-                            \ haven't implemented number parsing yet.
-      DROP EXIT
-    THEN
-    EMIT
-  AGAIN
-;
-\ ." HELLO, WORLD!" => HELLO, WORLD!
-```
+See `programs/` for factorial, Fibonacci, and more.
 
 ## Available Words
 ```text
 EXIT FOO BAR DUP + - AND OR XOR << >> INVERT DROP SWAP OVER ROT -ROT
-2DROP 2DUP 2SWAP 1+ 1- 4+ 4- >R R> RDROP LIT !  @ +!  -!  C!  C@ C@C!
-CMOVE EXECUTE BASE STATE LATEST SP0 x ] ?SE HERE DOCOL BUF BUFSZ WBUF
-WBUFSZ RP0 H0 F_IMMED F_HIDDEN F_LENMASK SCRATCH ' , SP@ SP!  RP@ RP!
-BRANCH 0BRANCH ?DUP = <> >= < > 0= RAND ASK UPRESS KEY EMIT . ?  AKEY
+2DROP 2DUP 2SWAP 1+ 1- 4+ 4- >R R> RDROP LIT ! @ +! -! C! C@ C@C!
+CMOVE EXECUTE BASE STATE LATEST SP0 [ ] ?SE HERE DOCOL BUF BUFSZ WBUF
+WBUFSZ RP0 H0 F_IMMED F_HIDDEN F_LENMASK SCR PLOTSS ' , SP@ SP!  RP@
+RP! BRANCH 0BRANCH ?DUP = <> >= <= < > 0= RAND ASK KEY EMIT . ? AKEY
 TO_ASCII * /MOD TESTA 0 1 2 3 4 5 6 7 8 9 10 TS SPACE CR AT-XY PUTS
-PUTLN GETS GETC UNGETC WORD IMMED? IMMED >NFA >CFA STR= FIND WB >DFA
-CREATE DOCOL_H : ; PAGE HIDDEN ?HIDDEN MOD / NEGATE TRUE FALSE NOT
-LITERAL NIP TUCK ID.  HIDE IF THEN ELSE BEGIN UNTIL AGAIN WHILE REPEAT
-CHAR [COMP] CONST ALLOT CELLS RECURSE VAR DO LOOP +LOOP I WR PN BYE
-STAR
+PUTLN GETS GETC UNGETC WORD IMMED? IMMED >NFA >CFA STR= FIND WB USED
+SIMG LIMG >DFA CREATE DOCOL_H : ; PAGE HIDDEN ?HIDDEN MOD / NEGATE
+TRUE FALSE NOT LITERAL NIP TUCK ID. HIDE IF THEN ELSE BEGIN UNTIL
+AGAIN WHILE REPEAT CHAR [COMP] CONST ALLOT CELLS RECURSE VAR DO LOOP
++LOOP FORGET I PLOT GETP DARKP TOGP LITP WR PN BYE STAR
+
 ```
 
 ## Screenshots
@@ -161,7 +111,7 @@ Judicious use of macros has greatly improved readability of the code.
 This was directly inspired by the _jonesforth_ implementation (see
 Reading List).
 ### Register Allocation
-One notable features of this Forth is the use of a register to keep
+One notable feature of this Forth is the use of a register to keep
 track of the top element in the stack.
 
 | Z80 Register | Forth VM Register             |
@@ -193,7 +143,7 @@ writing it out manually.
         interpreted).
 - [x] User input
   - [x] String reading routines
-  - [ ] Number reading routines
+  - [ ] Number reading routines (possible with `programs/number.fs`)
 - [x] Output
   - [x] Displaying strings
 - [x] Proper support for compile/interpret mode
@@ -207,8 +157,11 @@ pasted into the program.
   - [x] Allowing more than one word at a time input
   - [x] Respect hidden flag to avoid infinite looping. (`:` makes the
         word hidden).
-  - [ ] Reading numbers (support for 0-10 inclusive hardcoded, but not
-        a general algorithm)
+  - [x] Reading numbers (support for 0-10 inclusive hardcoded, but not
+        a general algorith).  See `programs/number.fs`
 - [ ] Document Forth words
 - [ ] Add assembler (so ASM programs can be made!)
 - [ ] Implement `DOES>`
+- [x] Implement `SIMG` (save image) and `LIMG` (load image) to save
+      and load sessions.
+- [ ] Add a way to put data on the screen as pixels (for export via screenshots).
