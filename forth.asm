@@ -515,9 +515,8 @@ bit_cache: .dw 0
         pop hl
         pop de
         ldir
-        push de
-        HL_TO_BC
         POP_DE_RS
+        pop bc
         NEXT
 
         ;; BC points to a codeword, execute it!
@@ -575,7 +574,7 @@ var_latest:
         NEXT
 
         ;; The "x" gets replaced with "[" at program start, see "start:"
-        defcode("x",1,0,rbrac)
+        defcode("x",1,128,rbrac)
         ld hl, var_state
         ld (hl), 0
         inc hl
@@ -709,7 +708,7 @@ var_sp:
         defcode("SP!", 3, 0, sp_store)
         BC_TO_HL
         ld sp, hl
-        pop bc
+        pop bc ;; new top of stack
         NEXT
 
 
@@ -2131,6 +2130,7 @@ setup_data_segment:
         ld de, AppBackUpScreen
         ld hl, var_here
         ld (save_sp), sp
+        ld (var_sz), sp
         ld (hl), e
         inc hl
         ld (hl), d
