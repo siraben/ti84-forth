@@ -427,6 +427,67 @@ bit_cache: .dw 0
         HL_TO_BC
         NEXT
 
+        defcode("LITSTR",6,0,lit_string)
+        ;; String length
+        ld a, (de)
+        ld l, a
+        inc de
+        ld a, (de)
+        ld h, a
+        inc de
+        
+        push bc
+        HL_TO_BC
+        
+        ;; Skip the string.
+        add hl, de
+        ;; Skip null pointer.  (Even though we have the length, because
+        ;; we don't have a bcall Linux that can print out a string with
+        ;; a certain length.
+        inc hl
+        ex de, hl
+        NEXT
+
+        defcode("TELL",4,0,tell)
+        BC_TO_HL
+        b_call _PutS
+        pop bc
+        NEXT
+
+        defcode("STRLEN",6,0,strlen)
+        BC_TO_HL
+        ;; Taken from the KnightOS kernel.
+        push af
+        push hl
+        xor a
+        ld b, a
+        ld c, a
+        cpir
+        ; bc = -bc
+        ld a,c \ cpl \ ld c, a \ ld a,b \ cpl \ ld b, a
+        pop hl
+        pop af
+        NEXT
+
+        ;; Return a pointer to the first occurrence of a character in a string
+        ;; Taken from the KnightOS kernel.
+        defcode("STRCHR",6,0,strchr) ; ( char str -- addr )
+        BC_TO_HL
+        pop bc
+        ld b, c
+
+strchr_loop:
+        ld a, (hl)
+        or a
+        jr z, strchar_fail
+        cp b
+        jp z, tru
+        inc hl
+        jr strchr_loop
+strchar_fail:
+        jp fal
+
+        
         defcode("!", 1,0,store)
         pop hl
         ld a, l
@@ -597,7 +658,7 @@ var_latest:
         ld c, l
         NEXT
 
-        cell_alloc(var_here,AppBackUpScreen)
+        cell_alloc(var_here,0)
         defcode("HERE",4,0,here)
         push bc
         ld bc, var_here
@@ -630,7 +691,7 @@ var_latest:
         NEXT
 
         defcode("H0", 2, 0, hz)
-        PSP_PUSH(AppBackupScreen)
+        PSP_PUSH(here_start)
         NEXT
 
         defcode("F_IMMED",7,0,__F_IMMED)
@@ -688,7 +749,6 @@ _comma:
 
         pop de
 
-                
         ret
         
         ;; Actually, we do have a stack pointer, but it's not probably
@@ -918,10 +978,13 @@ key_asm:
         NEXT
 
         defcode("?", 1, 0, peek_addr)
-        BC_TO_HL
-        ld c, (hl)
-        inc hl
-        ld b, (hl)
+        ld a, (bc)
+        ld l, a
+        inc bc
+        ld a, (bc)
+        ld h, a
+        call printhl_safe
+        pop bc
         NEXT
 
         ;; Convert a key code into an ASCII character by way of a
@@ -1297,8 +1360,7 @@ divACbyDE:
 
 ;; We also want immediate feedback to the user.
 #define STRING_BUFFER_SIZE 128
-;; 128 spaces
-string_buffer: .db "                                                                                                                                ",0
+string_buffer: .fill 128, 0
 gets_ptr: .dw 0
 
         defcode("GETS",4,0,get_str_forth)
@@ -1525,7 +1587,7 @@ unget_char_done:
 
 ;; ( -- base_addr len )
 #define BUFSIZE  64
-word_buffer: .db "                                ",0
+word_buffer:     .fill 64, 0
 word_buffer_ptr: .dw 0
         defcode("WORD",4,0,word)
         ;; Save IP and TOS.
@@ -1965,7 +2027,7 @@ strcmp_exit:
         defword("CHAR",4,0,char)
         .dw word, two_drop, lit, word_buffer, fetch_byte, exit
 
-        defword("[COMP]",6,128,compile)
+        defword("(COMP)",6,128,compile)
         .dw word, find, to_cfa, comma, exit
 
         defword("CONST",5,0,constant)
@@ -1999,6 +2061,25 @@ strcmp_exit:
 
         defword("FORGET",6,0,forget)
         .dw word, find, dup, fetch, latest, store, here, store, exit
+
+        ;; Interesting challenge: defined CASE, OF, ENDOF and ENDCASE
+        ;; in this file instead of compiling it in the interpreter
+
+
+        defword("CASE",4,128,case)
+        .dw lit, 0, exit
+
+        defword("OF", 2, 128, of)
+        .dw lit, over, comma, lit, eql, comma, lit, if, comma, lit, drop, comma, exit
+
+        defword("ENDOF", 5, 128, endof)
+        .dw lit, else, comma, exit
+
+        defword("ENDCASE", 7, 128, endcase)
+        ;; Try this definition again. It's broken.
+        .dw lit, drop, comma, here, fetch, qdup, lit, zbranch, comma, here, fetch, lit, 0, comma
+        .dw lit, then, comma, lit, branch, comma, swap, here, fetch, sub, comma, dup, here, fetch, swap
+        .dw sub, swap, exit
 
 
         defcode("I",1,0,curr_loop_index)
@@ -2127,7 +2208,7 @@ get_pixel_loop:
 	.dw lit, 42, emit, exit
 
 setup_data_segment:
-        ld de, AppBackUpScreen
+        ld de, here_start
         ld hl, var_here
         ld (save_sp), sp
         ld (var_sz), sp
@@ -2153,11 +2234,12 @@ prog:
         .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -66
         .dw done
 
+here_start:     .fill 1024, 0
 ;; Statically allocate 2K bytes of RAM.
 data_start:
 scratch:
         .fill 1024, 0
-        .fill 1024, 0
+
 save_latest: .dw star
 save_here:   .dw scratch
 data_end

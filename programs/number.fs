@@ -9,12 +9,18 @@
 
 : NUM? '0' '9' WITHIN ;
 
-: NUMBER
+: NUM IMMED
   0
   BEGIN
     GETC DUP NUM? NOT
     IF
       DROP \ we're done reading
+      STATE @ IF
+        \ interpreting
+      ELSE
+        ' LIT ,
+        , \ compiling
+      THEN
       EXIT
     ELSE
       '0' - SWAP 10 * +
@@ -22,5 +28,5 @@
   AGAIN
 ;
 
-\ NUMBER 1234 .
+\ NUM 1234 .
 \ => 1234

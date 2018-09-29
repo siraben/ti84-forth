@@ -14,7 +14,6 @@ calculator—treating it as the computer it is.  In fact people already
 do, by writing assembly programs, but assembly has its share of
 disadvantages.
 
-
 ## Why Forth?
 Assembly is painful to program in.  Programs crash at the slightest
 hint of error.  Development is a slow process, and you have to keep
@@ -62,39 +61,41 @@ RAM contents is by creating a group, refer to the manual on how to do
 this.
 
 ## Features
-- 16-bit Forth on a 8-bit chip
-- Direct-threaded
-- Programs are lists of 16-bit addresses
-- Takes advantage of system calls such as `_GetKey`, `_PutC` and more
-  to come (such as drawing pixels!)
-- Supports writeback!  2048 bytes of space starting at `SCRATCH`.
-  Write to this memory location and execute the `WB` word to save it!
+- A 16-bit Forth on a 8-bit chip
+- Contains 171 words (and counting) for everything from memory
+  management to drawing pixels and meta-compilation.
+- Support for writeback.  Use `SIMG` (save image) and `LIMG` (load
+  image) to save the words you've defined in a session.
 
 ## Example Programs
-See `programs/` for factorial, Fibonacci, and more.
+See `programs/` for program samples, including practical ones.
 
 ## Available Words
 ```text
 EXIT FOO BAR DUP + - AND OR XOR << >> INVERT DROP SWAP OVER ROT -ROT
-2DROP 2DUP 2SWAP 1+ 1- 4+ 4- >R R> RDROP LIT ! @ +! -! C! C@ C@C!
-CMOVE EXECUTE BASE STATE LATEST SP0 [ ] ?SE HERE DOCOL BUF BUFSZ WBUF
-WBUFSZ RP0 H0 F_IMMED F_HIDDEN F_LENMASK SCR PLOTSS ' , SP@ SP!  RP@
-RP! BRANCH 0BRANCH ?DUP = <> >= <= < > 0= RAND ASK KEY EMIT . ? AKEY
-TO_ASCII * /MOD TESTA 0 1 2 3 4 5 6 7 8 9 10 TS SPACE CR AT-XY PUTS
-PUTLN GETS GETC UNGETC WORD IMMED? IMMED >NFA >CFA STR= FIND WB USED
-SIMG LIMG >DFA CREATE DOCOL_H : ; PAGE HIDDEN ?HIDDEN MOD / NEGATE
-TRUE FALSE NOT LITERAL NIP TUCK ID. HIDE IF THEN ELSE BEGIN UNTIL
-AGAIN WHILE REPEAT CHAR [COMP] CONST ALLOT CELLS RECURSE VAR DO LOOP
-+LOOP FORGET I PLOT GETP DARKP TOGP LITP WR PN BYE STAR
-
+2DROP 2DUP 2SWAP 1+ 1- 4+ 4- >R R> RDROP LIT LITSTR TELL STRLEN STRCHR
+!  @ +!  -!  C!  C@ C@C!  CMOVE EXECUTE BASE STATE LATEST SP0 [ ] ?SE
+HERE DOCOL BUF BUFSZ WBUF WBUFSZ RP0 H0 F_IMMED F_HIDDEN F_LENMASK SCR
+PLOTSS ' , SP@ SP!  RP@ RP!  BRANCH 0BRANCH ?DUP = <> >= <= < > 0=
+RAND ASK KEY EMIT .  ?  AKEY TO_ASCII * /MOD TESTA 0 1 2 3 4 5 6 7 8 9
+10 TS SPACE CR AT-XY PUTS PUTLN GETS GETC UNGETC WORD IMMED?  IMMED
+>NFA >CFA STR= FIND WB USED SIMG LIMG >DFA CREATE DOCOL_H : ; PAGE
+HIDDEN ?HIDDEN MOD / NEGATE TRUE FALSE NOT LITERAL NIP TUCK ID.  HIDE
+IF THEN ELSE BEGIN UNTIL AGAIN WHILE REPEAT CHAR (COMP) CONST ALLOT
+CELLS RECURSE VAR DO LOOP +LOOP FORGET CASE OF ENDOF ENDCASE I PLOT
+GETP DARKP TOGP LITP WR PN BYE STAR
 ```
 
 ## Screenshots
-### Freedom, on your calculator.
-![Read memory.  One byte at a time.](repl3.png)
-
 ### TI-84+ inside
 ![key-prog program](demo2.png)
+
+### Combine words in powerful, practical ways.
+Combine low-level memory words with drawing words and user input words
+to create an arrow-key scrollable screen for viewing RAM memory.  See
+the 20 (or less) lines of code at `programs/memview.fs`.
+
+![What forth.asm looks like loaded into RAM.](repl3.png)
 
 ### An interactive REPL
 ![REPL demonstration](repl1.png)
@@ -104,6 +105,7 @@ AGAIN WHILE REPEAT CHAR [COMP] CONST ALLOT CELLS RECURSE VAR DO LOOP
 
 ### ...and use them.
 ![Using DOUBLE](repl5.png)
+
 
 ## Design Notes
 ### Use of Macros
@@ -143,7 +145,7 @@ writing it out manually.
         interpreted).
 - [x] User input
   - [x] String reading routines
-  - [ ] Number reading routines (possible with `programs/number.fs`)
+  - [x] Number reading routines (possible with `programs/number.fs`)
 - [x] Output
   - [x] Displaying strings
 - [x] Proper support for compile/interpret mode
@@ -164,4 +166,4 @@ pasted into the program.
 - [ ] Implement `DOES>`
 - [x] Implement `SIMG` (save image) and `LIMG` (load image) to save
       and load sessions.
-- [ ] Add a way to put data on the screen as pixels (for export via screenshots).
+- [x] Add a way to put data on the screen as pixels (for export via screenshots).

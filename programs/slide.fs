@@ -6,16 +6,10 @@
     KEY DUP 5 <>
   WHILE
     PAGE
-    DUP 3 = IF DROP \ up arrow
-               1+
-            ELSE
-              DUP 4 =  \ down arrow
-              IF DROP
-                 1-
-              ELSE
-                 DROP \ not up or down
-              THEN
-            THEN
+    CASE
+      3 OF 1+ ENDOF \ up arrow
+      4 OF 1- ENDOF \ down arrow
+    ENDCASE
     TS CR
   REPEAT
   DROP
