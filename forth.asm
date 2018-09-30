@@ -90,7 +90,7 @@ start:
         ld (hl), b
         push bc
 
-        ;; For some weird reason, either the spasm assembler or TI-84
+        ;; For some weird reason, either the spasm-ng assembler or TI-84
         ;; can't store the string "[", so we have to fix it by changing the value of rbrac's string.
 
         ld hl, name_rbrac
@@ -98,6 +98,22 @@ start:
         inc hl
         inc hl
         ld (hl), 193
+
+        ;; Same goes for S" and ."
+        ld hl, name_s_quote
+        inc hl
+        inc hl
+        inc hl
+        inc hl
+        ld (hl), 34
+
+        ld hl, name_dot_quote
+        inc hl
+        inc hl
+        inc hl
+        inc hl
+        ld (hl), 34
+
         call setup_data_segment
         ld bc, 9999
         ld de, prog
@@ -427,7 +443,7 @@ bit_cache: .dw 0
         HL_TO_BC
         NEXT
 
-        defcode("LITSTR",6,0,lit_string)
+        defcode("LITSTR",6,0,litstring)
         ;; String length
         ld a, (de)
         ld l, a
@@ -435,20 +451,36 @@ bit_cache: .dw 0
         ld a, (de)
         ld h, a
         inc de
-        
-        push bc
-        HL_TO_BC
+
+        push bc ;; old stack top
+        push de ;; push address of string
+        HL_TO_BC ;; BC now contains the string length
         
         ;; Skip the string.
         add hl, de
         ;; Skip null pointer.  (Even though we have the length, because
         ;; we don't have a bcall Linux that can print out a string with
-        ;; a certain length.
+        ;; a certain length).
+        
         inc hl
         ex de, hl
         NEXT
 
+        defword("SQ",2,128,s_quote)
+        .dw state, fetch, not, zbranch, 64, tick, litstring, comma, here, fetch
+        .dw zero, comma, get_char_forth, dup, lit, 34, neql, zbranch, eight, c_comma
+        .dw branch, 65518, drop, zero, c_comma, dup, here, fetch, swap, sub, two, sub
+        .dw swap, store, branch, 44, here, fetch, get_char_forth, dup, lit, 34, neql, zbranch
+        .dw 12, over, store_byte, one_plus, branch, 65514, drop, here, fetch, sub, here
+        .dw fetch, swap, exit
+
+        defword(".Q",2,128,dot_quote)
+        .dw state, fetch, not, zbranch, 14, s_quote, tick, tell, comma
+        .dw branch, 26, get_char_forth, dup, lit, 34, eql, zbranch, 6
+        .dw drop, exit, emit, branch, 65514, exit
+
         defcode("TELL",4,0,tell)
+        pop bc
         BC_TO_HL
         b_call _PutS
         pop bc
@@ -571,10 +603,10 @@ strchar_fail:
         NEXT
 
         defcode("CMOVE",5,0,cmove)
-        ;; ( destination source amount -- )
+        ;; ( source destination amount -- )
         PUSH_DE_RS
-        pop hl
         pop de
+        pop hl
         ldir
         POP_DE_RS
         pop bc
@@ -750,6 +782,27 @@ _comma:
         pop de
 
         ret
+
+        defcode("C,",2,0,c_comma)
+        call _c_comma
+        pop bc
+        NEXT
+_c_comma
+        push de
+        ld hl, (var_here)
+        ld (hl), c
+        inc hl
+        
+        ld de, var_here
+        ex de, hl
+        ld (hl), e
+        inc hl
+        ld (hl), d
+
+        pop de
+
+        ret
+        
         
         ;; Actually, we do have a stack pointer, but it's not probably
         ;; what is normally expected of Forths.
@@ -931,12 +984,7 @@ printhl_safe:
         pop af
         pop hl
         ret
-        
-ask_msg: .db "Press a key...",0
-        defcode("ASK", 3, 0, ask)
-        ld hl, ask_msg
-        call str_println
-        NEXT
+
         
 str_println:
         b_call _PutS
@@ -975,15 +1023,16 @@ key_asm:
         b_call _PutC
         pop bc
         NEXT
+        
 
 
-        defcode(".", 1, 0, print_tos)
-        BC_TO_HL
-        call printhl_safe
-        ld a, ' '
-        b_call _PutC
-        pop bc
-        NEXT
+        ;; defcode(".", 1, 0, u_dot)
+        ;; BC_TO_HL
+        ;; call printhl_safe
+        ;; ld a, ' '
+        ;; b_call _PutC
+        ;; pop bc
+        ;; NEXT
 
         defcode("?", 1, 0, peek_addr)
         ld a, (bc)
@@ -1152,7 +1201,7 @@ mul16By16:
 
 
 
-        ;; ( a b -- quotient remainder )
+        ;; ( a b -- remainder quotient )
         defcode("/MOD", 4, 0, divmod)
         PUSH_DE_RS
         ld d, b
@@ -1275,9 +1324,8 @@ divACbyDE:
         dec c
 
         ld b, a
-        ;; Quotient, then remainder.
-        push bc
-        HL_TO_BC
+        ;; Remainder, then quotient.
+        push hl
         POP_DE_RS
         NEXT
      
@@ -1316,8 +1364,6 @@ divACbyDE:
         defword("10",2,0,ten)
         .dw lit, 10, exit
 
-        defword("TS",2,0,top_stack)
-        .dw dup, print_tos, exit
 
         defword("SPACE",5,0,space)
         .dw lit, 32, emit, exit
@@ -1362,7 +1408,12 @@ divACbyDE:
 #define STRING_BUFFER_SIZE 128
 
 ;; We can have a default program!
-string_buffer: .fill 128, 0
+
+string_buffer:  .fill 128,0
+;; string_buffer: .db ": .\" IMMED STATE @ NOT IF (COMP) S\" ' TELL , "
+;;                .db "ELSE BEGIN GETC DUP NUM 34 = IF DROP EXIT THEN "
+;;                .db "EMIT AGAIN THEN ; ",0
+
 gets_ptr: .dw string_buffer
 
         defcode("GETS",4,0,get_str_forth)
@@ -1666,7 +1717,7 @@ word_done:
 
 
         ;; Is this word immediate? (assuming it's a pointer returned by FIND)
-        defcode("IMMED?",6,0, immedq)
+        defcode("?IMMED",6,0, qimmed)
         inc bc
         inc bc
         ld a, (bc)
@@ -1838,13 +1889,13 @@ strcmp_exit:
         defword("SIMG",4,0,save_image)
         .dw here, fetch, lit, save_here, store
         .dw latest, fetch, lit, save_latest, store
-        .dw __scratch, hz, used, cmove, writeback, exit
+        .dw hz, lit, scratch, used, cmove, writeback, exit
 
         ;; Load the scratch buffer back into the current state.
         defword("LIMG",4,0,load_image)
         .dw lit, save_here, fetch, here, store
         .dw lit, save_latest, fetch, latest, store
-        .dw hz, lit, scratch, lit, save_here, fetch, hz, sub, cmove, exit
+        .dw lit, scratch, hz, lit, save_here, fetch, hz, sub, cmove, exit
 
         defword(">DFA",4,0,to_dfa)
         .dw to_cfa, four_plus, one_minus, exit
@@ -1964,10 +2015,10 @@ strcmp_exit:
         NEXT
 
         defword("MOD",3,0, mod)
-        .dw divmod, swap, drop, exit
+        .dw divmod, drop, exit
 
         defword("/",1,0,div)
-        .dw divmod, drop, exit
+        .dw divmod, swap, drop, exit
 
         defword("NEGATE",6,0,negate)
         .dw lit, 0, swap, sub, exit
@@ -2092,17 +2143,42 @@ strcmp_exit:
         defword("PICK",4,0,pick)
         .dw one_plus, left_shift, sp_fetch, add, fetch, exit
 
+        defword("U.",2,0,u_dot_)
+        .dw base, fetch, divmod, qdup, zbranch, 4, u_dot_, dup, ten, less_than, zbranch, 10
+        .dw lit, 48, branch, 10, ten, sub, lit, 65, add, emit, exit
+
+        defword("UWIDTH",6,0,u_width)
+        .dw base, fetch, div, qdup, zbranch, 10, u_width, one_plus, branch, 4, one, exit
+
+        defword("SPACES",6,0,spaces)
+        .dw zero, to_r, to_r, space, from_r, from_r, one_plus, two_dup, eql, zbranch, 65518
+        .dw two_drop, exit
+
+        defword("U.R",3,0,u_dot_r)
+        .dw swap, dup, u_width, rot, swap, sub, spaces, u_dot_, exit
+
+        defword("U.",2,0,u_dot)
+        .dw u_dot_, space, exit
+        
+
+        defword(".",1,0,print_tos)
+        .dw u_dot, space,  exit
+
+        defword(".S",2,0,print_stack)
+        .dw sp_fetch, dup, sz, fetch, less_than, zbranch, 16, dup, fetch, u_dot
+        .dw two, add, branch, 65512, drop, exit
+        
         ;; This word was bootstrapped from an interpreted definition.
         defword("SEE",3,0,see)
         .dw word, find, here, fetch, latest, fetch, two, pick, over, neql, zbranch
         .dw 12, nip, dup, fetch, branch, 65516, drop, swap, lit, 58, emit, space
-        .dw dup, id_dot, space, dup, immedq, zbranch, 10, lit, 73, emit, space
+        .dw dup, id_dot, space, dup, qimmed, zbranch, 10, lit, 73, emit, space
         .dw to_dfa, key, drop, two_dup, greater_than, zbranch, 214, dup, fetch, tick
-        .dw lit, over, eql, zbranch, 20, drop, two, add, dup, fetch, cr, print_tos, branch, 172
+        .dw lit, over, eql, zbranch, 20, drop, two, add, dup, fetch, cr, u_dot, branch, 172
         .dw tick, zbranch, over, eql, zbranch, 34, drop, space, lit, 48, emit
-        .dw lit, 66, emit, two, add, dup, fetch, cr, print_tos, branch, 128, tick
+        .dw lit, 66, emit, two, add, dup, fetch, cr, u_dot, branch, 128, tick
         .dw branch, over, eql, zbranch, 28, drop, lit, 66, emit, space, two, add, dup
-        .dw fetch, cr, print_tos, branch, 90, tick, tick, over, eql, zbranch, 30, drop
+        .dw fetch, cr, u_dot, branch, 90, tick, tick, over, eql, zbranch, 30, drop
         .dw lit, 39, emit, space, two, add, dup, fetch, cfa_to, id_dot, space, branch
         .dw 50, tick, exit, over, eql, zbranch, 28, drop, two_dup, two, add, neql
         .dw zbranch, 10, lit, 69, emit, space, branch, 12, dup, cfa_to, id_dot, space, drop
@@ -2111,6 +2187,8 @@ strcmp_exit:
         defword("WORDS",5,0,words)
         .dw latest, fetch, key, drop, qdup, zbranch, 24, dup, qhidden, not, zbranch, 8
         .dw dup, id_dot, space, fetch, branch, 65506, cr, exit
+
+
 
         defword("CASE",4,128,case)
         .dw zero, exit
@@ -2170,6 +2248,100 @@ FreqOutDone:
     out (0),a       ;reset the port, else the user will be really annoyed.
     ret
 
+        defcode("IN0",3,0,in_zero)
+        push bc
+        push de
+        ld a, c
+        call read_z
+        pop de
+        pop bc
+        NEXT
+
+        defcode("W0",2,0,write_zero)
+        push bc
+        push de
+        call write_z
+        pop de
+        ld b,0
+        ld c,a
+        NEXT
+        
+;; Read data from the link port.
+read_z:
+	ld b,0			; reset variables (b = byte,
+	ld d,1			; d = bitmask, e = clockstate)
+	in a,(0)		; Get byte and check tip
+	bit 2,a
+	call z,State_zero
+	call nz,State_one
+Read_go:
+	in a,(0)		; Is clockstate changed?
+	bit 2,a
+	ld a,e
+	jr z,Clock_is_low
+	or a
+	jr z,Clockchanged	; Yes (High)
+	jr Read_go		; No
+Clock_is_low:
+	or a
+	jr z,Read_go		; No  (Low)
+Clockchanged:			; Yes
+	in a,(0)		; Get value from port
+	bit 2,a
+	call z,State_zero	; Store new clockstate
+	call nz,State_one
+	bit 3,a
+	call nz,Or_byte	; Or them, depending on state of ring
+	rlc d
+	ld a,d
+	cp 1
+	jr z,Stop_read		; Yes: quit
+	jr Read_go		; No, next bit
+Or_byte:
+	ld a,b
+	or d
+	ld b,a
+	ret
+State_zero:
+	ld e,0
+	ret
+State_one:
+	ld e,1
+	ret
+Stop_read:
+	ld a,b
+	ret
+
+Write_z:
+	ld c,a			; Store byte
+	ld d,1			; Create bitmask
+	ld e,$D1		; Init linkport value
+Write_go:
+	ld a,c			; Retrieve byte
+	and d			; and with bitmask
+	or a
+	call z,Set_ring_low
+	call nz,Set_ring_high	; Set data line (ring) according to bit
+	rlc d			; rotate bitmask
+	ld a,e			; retrieve linkport value
+	out (0),a		; Set linkport
+	xor 1			; invert clockstate
+	ld e,a			; store linkport value
+	ld b,6
+Delay_loop:
+	djnz Delay_loop	; Short delay
+	ld a,d			; bitmask back to original?
+	cp 1
+	jr nz,Write_go		; No: Next bit
+	ret			; Yes: Done
+Set_ring_high:
+	res 1,e
+	ret
+Set_ring_low:
+	set 1,e
+	ret
+
+        
 FrequencyLUT:
  .dw 2100,1990,1870,1770,1670,1580,1490,1400,1320,1250,1180,1110
  .dw 1050, 996, 940, 887, 837, 790, 746, 704, 665, 627, 592, 559
@@ -2318,7 +2490,7 @@ get_pixel_loop:
         defword("WR", 2, 0, write)
         ;; The second get_str_forth is necessary as we don't want the
         ;; interpreter to read the entered text
-        .dw cr, get_str_forth, cr, lit, word_buffer, __string_buffer_size, cmove, get_str_forth, exit
+        .dw cr, get_str_forth, cr, lit, word_buffer, swap, __string_buffer_size,  cmove, get_str_forth, exit
         
         defcode("PN", 2, 0, print_nice)
         ld hl, 0
@@ -2354,22 +2526,21 @@ prog_exit: .dw 0
 save_sp:   .dw 0
 
 ;; We should be able to define an interpreter in Forth that supports compiled code if we try.
+;; Coming later:  A interpreter defined in Forth and meta-compiled.
 prog:
-        .dw get_str_forth
+;;      .dw get_str_forth
         .dw word, find, dup, zbranch, 48
         .dw lit, var_state, fetch, zbranch, 18, to_cfa, execute, space
-        .dw lit, ok_msg, putstrln, branch, -34, dup, immedq, zbranch, 6
+        .dw lit, ok_msg, putstrln, branch, -34, dup, qimmed, zbranch, 6
         .dw branch, -26
         .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -66
         .dw done
 
+here_start:     .fill 512, 0
 
-here_start:     .fill 1024, 0
-;; Statically allocate 2K bytes of RAM.
 data_start:
 scratch:
         .fill 512, 0
-
 save_latest: .dw star
 save_here:   .dw scratch
 data_end

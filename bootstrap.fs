@@ -20,3 +20,40 @@ NUM 59 EMIT CR 2DROP ;
 
 : WORDS LATEST @ BEGIN KEY DROP ?DUP WHILE DUP ?HIDDEN NOT IF DUP
 ID. SPACE THEN @ REPEAT CR ;
+
+: QUIT BEGIN RP0 RP! INTERP AGAIN ;
+
+: C, HERE @ C! 1 HERE +! ;
+
+: S" IMMED STATE @ NOT IF ' LITSTR , HERE @ 0 , BEGIN GETC DUP NUM 34 <>
+WHILE C, REPEAT DROP 0 C, DUP HERE @ SWAP - 2 - SWAP ! ELSE HERE @
+BEGIN GETC DUP NUM 34 <> WHILE OVER C! 1+ REPEAT DROP HERE @ - HERE @
+SWAP THEN
+;
+
+
+\ The interpreter.
+: INTERP
+  GETS \ First time we run, read a string from the user, or omit this
+       \ line if you want to run a preloaded program.
+  BEGIN
+    WORD FIND
+    DUP
+    IF
+      >CFA ?IMMED \ if it's immediate, execute it.
+      IF
+        
+    ELSE
+      LIT WBUF RNUM
+      DUP 0= IF
+        LIT UNDEFMSG PUTLN
+      THEN
+      
+    THEN
+    
+    
+  AGAIN
+;
+
+NUM 48 CONST '0'
+NUM 65 CONST 'A'

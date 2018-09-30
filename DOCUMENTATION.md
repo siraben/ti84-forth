@@ -1,7 +1,5 @@
 # Forth Word Documentation
-```
 All stack elements are 16-bit unsigned integers.
-```
 ## CODE words
 ### EXIT ( -- )
 ### FOO ( -- n )
@@ -134,7 +132,7 @@ Unget the last character from `BUF`.
 ### WORD ( -- addr len )
 Read a full, space-delimited word from `BUF` and push the address of
 `WBUF` followed by the length of the word onto the stack.
-### IMMED? ( addr -- b )
+### ?IMMED ( addr -- b )
 Given a pointer returned from `FIND`, return whether or not the word
 is marked `IMMEDIATE`.  Follows boolean convention.
 ### IMMED ( -- )
