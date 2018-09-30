@@ -282,13 +282,13 @@ bit_cache: .dw 0
         ld b, a
         NEXT
 
-        defcode("<<",2, 0, shift_left)
+        defcode("<<",2, 0, left_shift)
         BC_TO_HL
         add hl, hl
         HL_TO_BC
         NEXT
 
-        defcode(">>",2,0, shift_right)
+        defcode(">>",2,0, right_shift)
         push de
         ld d, b
         ld e, c
@@ -947,8 +947,6 @@ str_print:
         b_call _PutS
         ret
 
-        ;; key emit should output the same character that was input,
-        ;; by the way
         defcode("KEY", 3, 0, key)
         call key_asm
         push bc
@@ -963,6 +961,14 @@ key_asm:
         pop de
         pop bc
         ret
+
+        ;; Get a key but non-blocking.
+        defcode("KEYC", 4, 0, keyc)
+        push bc
+        b_call _GetCSC
+        ld c, a
+        ld b, 0
+        NEXT
         
         defcode("EMIT",4,0,emit)
         ld a, c
@@ -974,6 +980,8 @@ key_asm:
         defcode(".", 1, 0, print_tos)
         BC_TO_HL
         call printhl_safe
+        ld a, ' '
+        b_call _PutC
         pop bc
         NEXT
 
@@ -1273,14 +1281,6 @@ divACbyDE:
         POP_DE_RS
         NEXT
      
-        
-        defword("TESTA", 5, 0, test_arith)
-        .dw dup, four_plus, print_tos
-        .dw dup, four_minus, print_tos
-        .dw dup, one_plus, print_tos
-        .dw dup, one_minus, print_tos
-        .dw print_tos, exit
-
         ;; Ad-hoc solution to read a number.
 
         defword("0",1,0,zero)
@@ -1360,8 +1360,10 @@ divACbyDE:
 
 ;; We also want immediate feedback to the user.
 #define STRING_BUFFER_SIZE 128
+
+;; We can have a default program!
 string_buffer: .fill 128, 0
-gets_ptr: .dw 0
+gets_ptr: .dw string_buffer
 
         defcode("GETS",4,0,get_str_forth)
         push de
@@ -1993,35 +1995,35 @@ strcmp_exit:
         NEXT
 
         defword("ID.",3,0,id_dot)
-        .dw lit, 3, add, putstrln, exit
+        .dw lit, 3, add, putstr, exit
 
         defword("HIDE",4,0,hide)
         .dw word, find, hidden, exit
 
         defword("IF",2,128,if)
-        .dw lit, zbranch, comma, here, fetch, lit, 0, comma, exit
+        .dw tick, zbranch, comma, here, fetch, lit, 0, comma, exit
 
         defword("THEN",4,128,then)
         .dw dup, here, fetch, swap, sub, swap, store, exit
 
         defword("ELSE",4,128,else)
-        .dw lit, branch, comma, here, fetch, lit, 0, comma, swap, dup, here
+        .dw tick, branch, comma, here, fetch, lit, 0, comma, swap, dup, here
         .dw fetch, swap, sub, swap, store, exit
 
         defword("BEGIN",5,128,begin)
         .dw here, fetch, exit
 
         defword("UNTIL",5,128,until)
-        .dw lit, zbranch, comma, here, fetch, sub, comma, exit
+        .dw tick, zbranch, comma, here, fetch, sub, comma, exit
 
         defword("AGAIN",5,128,again)
-        .dw lit, branch, comma, here, fetch, sub, comma, exit
+        .dw tick, branch, comma, here, fetch, sub, comma, exit
 
         defword("WHILE",5,128,while)
-        .dw lit, zbranch, comma, here, fetch, lit, 0, comma, exit
+        .dw tick, zbranch, comma, here, fetch, lit, 0, comma, exit
 
         defword("REPEAT",6,128,repeat)
-        .dw lit, branch, comma, swap, here, fetch, sub, comma
+        .dw tick, branch, comma, swap, here, fetch, sub, comma
         .dw dup, here, fetch, swap, sub, swap, store, exit
         
         defword("CHAR",4,0,char)
@@ -2048,38 +2050,79 @@ strcmp_exit:
         .dw lit, exit, comma, exit
  
         defword("DO",2,128, do)
-        .dw here, fetch, lit, to_r, comma, lit, to_r, comma, exit
+        .dw here, fetch, tick, to_r, comma, tick, to_r, comma, exit
 
         defword("LOOP",4,128, loop)
-        .dw lit, from_r, comma, lit, from_r, comma, lit, one_plus, comma, lit, two_dup, comma
-        .dw lit, eql, comma, lit, zbranch, comma, here, fetch,  sub, comma, lit, two_drop, comma, exit
+        .dw tick, from_r, comma, tick, from_r, comma, tick, one_plus, comma, tick, two_dup, comma
+        .dw tick, eql, comma, tick, zbranch, comma, here, fetch,  sub, comma, tick, two_drop, comma, exit
 
 
         defword("+LOOP",5,128, add_loop)
-        .dw lit, from_r, comma, lit, from_r, comma, lit, rot, comma, lit, add, comma, lit, two_dup, comma
-        .dw lit, eql, comma, lit, zbranch, comma, here, fetch,  sub, comma, lit, two_drop, comma, exit
+        .dw tick, from_r, comma, tick, from_r, comma, tick, rot, comma, tick, add, comma, tick, two_dup, comma
+        .dw tick, eql, comma, tick, zbranch, comma, here, fetch,  sub, comma, tick, two_drop, comma, exit
 
         defword("FORGET",6,0,forget)
         .dw word, find, dup, fetch, latest, store, here, store, exit
 
-        ;; Interesting challenge: defined CASE, OF, ENDOF and ENDCASE
-        ;; in this file instead of compiling it in the interpreter
+        defcode("'0'",3,0,zeroc)
+        push bc
+        ld bc, 48
+        NEXT
 
+        defcode("'9'",3,0,ninec)
+        push bc
+        ld bc, 57
+        NEXT
+
+        defword("WITHIN",6,0,within)
+        .dw over, sub, to_r, sub, from_r, less_eq, exit
+
+        defword("NUM?",4,0,numq)
+        .dw zeroc, ninec, within, exit
+
+        defword("NUM",3,128,num)
+        .dw zero, get_char_forth, dup, numq, not, zbranch, 30, drop, state, fetch, zbranch, 6
+        .dw branch, 10, tick, lit, comma, comma, exit, branch, 14, zeroc, sub
+        .dw swap, ten, mult, add, branch, -54, exit
+
+        defword("CFA>",4,0, cfa_to)
+        .dw latest, fetch, qdup, zbranch, 22, two_dup, swap
+        .dw less_than, zbranch, 6, nip, exit, fetch, branch, -24, drop, zero, exit
+
+        defword("PICK",4,0,pick)
+        .dw one_plus, left_shift, sp_fetch, add, fetch, exit
+
+        ;; This word was bootstrapped from an interpreted definition.
+        defword("SEE",3,0,see)
+        .dw word, find, here, fetch, latest, fetch, two, pick, over, neql, zbranch
+        .dw 12, nip, dup, fetch, branch, 65516, drop, swap, lit, 58, emit, space
+        .dw dup, id_dot, space, dup, immedq, zbranch, 10, lit, 73, emit, space
+        .dw to_dfa, key, drop, two_dup, greater_than, zbranch, 214, dup, fetch, tick
+        .dw lit, over, eql, zbranch, 20, drop, two, add, dup, fetch, cr, print_tos, branch, 172
+        .dw tick, zbranch, over, eql, zbranch, 34, drop, space, lit, 48, emit
+        .dw lit, 66, emit, two, add, dup, fetch, cr, print_tos, branch, 128, tick
+        .dw branch, over, eql, zbranch, 28, drop, lit, 66, emit, space, two, add, dup
+        .dw fetch, cr, print_tos, branch, 90, tick, tick, over, eql, zbranch, 30, drop
+        .dw lit, 39, emit, space, two, add, dup, fetch, cfa_to, id_dot, space, branch
+        .dw 50, tick, exit, over, eql, zbranch, 28, drop, two_dup, two, add, neql
+        .dw zbranch, 10, lit, 69, emit, space, branch, 12, dup, cfa_to, id_dot, space, drop
+        .dw two, add, branch, 65314, lit, 59, emit, cr, two_drop, exit
+
+        defword("WORDS",5,0,words)
+        .dw latest, fetch, key, drop, qdup, zbranch, 24, dup, qhidden, not, zbranch, 8
+        .dw dup, id_dot, space, fetch, branch, 65506, cr, exit
 
         defword("CASE",4,128,case)
-        .dw lit, 0, exit
+        .dw zero, exit
 
         defword("OF", 2, 128, of)
-        .dw lit, over, comma, lit, eql, comma, lit, if, comma, lit, drop, comma, exit
+        .dw tick, over, comma, tick, eql, comma, if, tick, drop, comma, exit
 
         defword("ENDOF", 5, 128, endof)
-        .dw lit, else, comma, exit
+        .dw else, exit
 
         defword("ENDCASE", 7, 128, endcase)
-        ;; Try this definition again. It's broken.
-        .dw lit, drop, comma, here, fetch, qdup, lit, zbranch, comma, here, fetch, lit, 0, comma
-        .dw lit, then, comma, lit, branch, comma, swap, here, fetch, sub, comma, dup, here, fetch, swap
-        .dw sub, swap, exit
+        .dw tick, drop, comma, qdup, zbranch, 8, then, branch, -10, exit
 
 
         defcode("I",1,0,curr_loop_index)
@@ -2087,6 +2130,91 @@ strcmp_exit:
         ld c, (ix + 2)
         ld b, (ix + 3)
         NEXT
+
+
+;; Taken from http://z80-heaven.wikidot.com/sound
+
+        ;; ( frequency duration -- )
+        defcode("SMIT",4,0,sound_emit)
+        BC_TO_HL
+        pop bc
+        push de
+        call p_FreqOut
+        pop de
+        pop bc
+        NEXT
+p_FreqOut:
+;Inputs:
+;     HL is the duration of the note
+;     BC is the frequency
+    xor    a
+FreqOutLoop1:
+    push    bc
+    xor     3    ;this will toggle the lower two bits (the data being sent to the link port)
+    ld    e,a
+FreqOutLoop2:
+    ld    a,h
+    or    l
+    jr    z,FreqOutDone
+    cpd
+    jp    pe,FreqOutLoop2
+    ld    a,e
+    scf
+FreqOutDone:
+    pop    bc
+    out    (0),a
+    jr    c,FreqOutLoop1
+    xor b
+    nop
+    nop
+    out (0),a       ;reset the port, else the user will be really annoyed.
+    ret
+
+FrequencyLUT:
+ .dw 2100,1990,1870,1770,1670,1580,1490,1400,1320,1250,1180,1110
+ .dw 1050, 996, 940, 887, 837, 790, 746, 704, 665, 627, 592, 559
+ .dw  527, 498, 470, 444, 419, 395, 373, 352, 332, 314, 296, 279
+ .dw  264, 249, 235, 222, 209, 198, 186, 176, 166, 157, 148, 140
+ .dw  132, 124, 117, 111, 105,  99,  93,  88,  83,  78,  74,  70
+ .dw   66,  62,  59,  55,  52,  49,  47,  44,  42,  39,  37,  35
+ .dw   33,  31,  29,  28,  26,  25,  23,  22,  21,  20,  19,  18
+ .dw   17,  16,  15,  14,  13,  12,  11,  10,  10,   9,   9,   8
+ .dw    8,   7,   7,   7,   7,   6,   6,   5,   5,   5,   5,   4
+ 
+;; Play note A for duration D
+;; Taken from http://z80-heaven.wikidot.com/sound
+;; Work in progress.  Somewhat buggy.
+
+        ;; (  note duration -- )
+        defcode("PLAY",4,0,play_note)
+        PUSH_DE_RS
+        ld d, c
+        pop bc
+        ld a, c
+PlayNote:
+        ld hl,FrequencyLUT
+        add a,l
+        ld l,a
+        jr nc, PlayNote_cont
+        inc h
+        ld c,(hl)
+        inc hl
+PlayNote_cont:        
+        ld b,(hl)
+;now BC is the frequency for the note
+NoteLoop:
+        push bc
+        ld hl,4096
+        call p_FreqOut
+        pop bc
+        dec bc
+        ld a,b
+        or c
+        jr nz,NoteLoop
+        POP_DE_RS
+        pop bc
+        NEXT
+
 
         defcode("PLOT",4,0,plot)
         push bc
@@ -2181,6 +2309,7 @@ get_pixel_loop:
         pop bc
         NEXT
 
+
 ;; Creating an editor.  Rough idea: We want to have a block-editing
 ;; system to be able to save and read programs.  We use the small
 ;; variable width font instead of the large one, so that we may place
@@ -2200,7 +2329,7 @@ get_pixel_loop:
         pop bc        
         NEXT
         
-        defcode("BYE",3,0,bye)
+        defcode("BYE",3,128,bye)
         jp done
 
 	;; MAKE SURE THIS IS THE LAST WORD TO BE DEFINED!
@@ -2234,11 +2363,12 @@ prog:
         .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -66
         .dw done
 
+
 here_start:     .fill 1024, 0
 ;; Statically allocate 2K bytes of RAM.
 data_start:
 scratch:
-        .fill 1024, 0
+        .fill 512, 0
 
 save_latest: .dw star
 save_here:   .dw scratch

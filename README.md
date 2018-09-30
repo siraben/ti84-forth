@@ -48,6 +48,8 @@ ln -s ../opt/openssl/include/openssl .
 - A TI-84+ calculator!
   - Should work on a TI-83+ as well, but I don't have one so please
     report bugs if you find them.
+- (Optional) A 2.5 mm to 3.5 mm audio cable to connect the I/O port
+  with a speaker.
 ## Building
 Once you have compiled `spasm-ng`, copy `forth.asm` into the cloned
 folder.  Then run:
@@ -63,7 +65,8 @@ this.
 ## Features
 - A 16-bit Forth on a 8-bit chip
 - Contains 171 words (and counting) for everything from memory
-  management to drawing pixels and meta-compilation.
+  management to drawing pixels, de-compilation and even playing sounds
+  over the I/O port.
 - Support for writeback.  Use `SIMG` (save image) and `LIMG` (load
   image) to save the words you've defined in a session.
 
@@ -77,13 +80,14 @@ EXIT FOO BAR DUP + - AND OR XOR << >> INVERT DROP SWAP OVER ROT -ROT
 !  @ +!  -!  C!  C@ C@C!  CMOVE EXECUTE BASE STATE LATEST SP0 [ ] ?SE
 HERE DOCOL BUF BUFSZ WBUF WBUFSZ RP0 H0 F_IMMED F_HIDDEN F_LENMASK SCR
 PLOTSS ' , SP@ SP!  RP@ RP!  BRANCH 0BRANCH ?DUP = <> >= <= < > 0=
-RAND ASK KEY EMIT .  ?  AKEY TO_ASCII * /MOD TESTA 0 1 2 3 4 5 6 7 8 9
+RAND ASK KEY KEYC EMIT .  ?  AKEY TO_ASCII * /MOD 0 1 2 3 4 5 6 7 8 9
 10 TS SPACE CR AT-XY PUTS PUTLN GETS GETC UNGETC WORD IMMED?  IMMED
 >NFA >CFA STR= FIND WB USED SIMG LIMG >DFA CREATE DOCOL_H : ; PAGE
 HIDDEN ?HIDDEN MOD / NEGATE TRUE FALSE NOT LITERAL NIP TUCK ID.  HIDE
 IF THEN ELSE BEGIN UNTIL AGAIN WHILE REPEAT CHAR (COMP) CONST ALLOT
-CELLS RECURSE VAR DO LOOP +LOOP FORGET CASE OF ENDOF ENDCASE I PLOT
-GETP DARKP TOGP LITP WR PN BYE STAR
+CELLS RECURSE VAR DO LOOP +LOOP FORGET '0' '9' WITHIN NUM?  NUM CFA>
+PICK SEE WORDS CASE OF ENDOF ENDCASE I SMIT PLAY PLOT GETP DARKP TOGP
+LITP WR PN BYE STAR
 ```
 
 ## Screenshots
@@ -141,7 +145,7 @@ writing it out manually.
 - [x] Ability to read/write programs
   - [x] `WB` word to writeback 2048 bytes of data starting from
         `SCRATCH`.
-  - [ ] Ability to "execute" strings (so that programs can be
+  - [x] Ability to "execute" strings (so that programs can be
         interpreted).
 - [x] User input
   - [x] String reading routines
@@ -166,4 +170,5 @@ pasted into the program.
 - [ ] Implement `DOES>`
 - [x] Implement `SIMG` (save image) and `LIMG` (load image) to save
       and load sessions.
+- [x] Add sound capabilities
 - [x] Add a way to put data on the screen as pixels (for export via screenshots).
