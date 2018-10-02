@@ -12,11 +12,11 @@
 : SEE WORD FIND HERE @ LATEST @ BEGIN 2 PICK OVER <> WHILE NIP DUP @
 REPEAT DROP SWAP NUM 58 EMIT SPACE DUP ID. SPACE DUP IMMED? IF NUM 73
 EMIT SPACE THEN >DFA BEGIN KEY DROP 2DUP > WHILE DUP @ CASE ' LIT OF 2
-+ DUP @ CR . ENDOF ' 0BRANCH OF SPACE NUM 48 EMIT NUM 66 EMIT 2 + DUP
-@ CR . ENDOF ' BRANCH OF NUM 66 EMIT SPACE 2 + DUP @ CR . ENDOF ' ' OF
-NUM 39 EMIT SPACE 2 + DUP @ CFA> ID. SPACE ENDOF ' EXIT OF 2DUP 2 + <>
-IF NUM 69 EMIT SPACE THEN ENDOF DUP CFA> ID. SPACE ENDCASE 2 + REPEAT
-NUM 59 EMIT CR 2DROP ;
++ DUP @ . ENDOF ' 0BRANCH OF SPACE NUM 48 EMIT NUM 66 EMIT 2 + DUP @
+. ENDOF ' BRANCH OF NUM 66 EMIT SPACE 2 + DUP @ . ENDOF ' ' OF NUM 39
+EMIT SPACE 2 + DUP @ CFA> ID. SPACE ENDOF ' EXIT OF 2DUP 2 + <> IF NUM
+69 EMIT SPACE THEN ENDOF DUP CFA> ID. SPACE ENDCASE 2 + REPEAT NUM 59
+EMIT CR 2DROP ;
 
 : WORDS LATEST @ BEGIN KEY DROP ?DUP WHILE DUP ?HIDDEN NOT IF DUP
 ID. SPACE THEN @ REPEAT CR ;
@@ -32,27 +32,24 @@ SWAP THEN
 ;
 
 
-\ The interpreter.
+\ The interpreter. Work in progress.
 : INTERP
-  GETS \ First time we run, read a string from the user, or omit this
-       \ line if you want to run a preloaded program.
+  GETS
   BEGIN
-    WORD FIND
-    DUP
-    IF
-      >CFA ?IMMED \ if it's immediate, execute it.
-      IF
-        
-    ELSE
-      LIT WBUF RNUM
-      DUP 0= IF
-        LIT UNDEFMSG PUTLN
+    WORD FIND DUP IF
+      DUP ?IMMED IF
+        >CFA EXECUTE REPORT_SE OK_MSG \ found and immediate
+      ELSE
+        STATE @ IF
+           >CFA EXECUTE REPORT_SE OK_MSG \ interpreting
+        ELSE
+          >CFA , \ compiling and not immediate.
+        THEN
       THEN
-      
     THEN
-    
-    
   AGAIN
+
+    
 ;
 
 NUM 48 CONST '0'

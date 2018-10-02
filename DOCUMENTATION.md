@@ -39,6 +39,10 @@ Push the second-top element of the stack onto the top of the stack.
 Increment the top element of the stack.
 ### 1- ( n -- n-1 )
 Decrement the top element of the stack.
+### 2+ ( n -- n+2 )
+Increment the top element of the stack by 2.
+### 2- ( n -- n-2 )
+Decrement the top element of the stack by 2.
 ### 4+ ( n -- n+4 )
 Increment the top element of the stack by 4.
 ### 4- ( n -- n-4 )
@@ -154,13 +158,59 @@ found.
 Writeback the (possibly) modified contents from `data_start` to `data_end`.
 ### CREATE
 ### DOCOL_H
+Writes the three bytes corresponding to `call docol` to the memory
+location pointed to by `HERE`.
+### (DOES>)
+Created by `DOES>`, or can be called as well.  Sets the `call`
+destination of the `LATEST` word's Code Field Address to the address
+directly after `DOES>`, which is the instruction pointer at the time
+`DOES>` is invoked.  See `DOES>` for more information.
+### DOES>
+Used in words that can create new words.  See the following example:
+```forth
+: CONSTANT
+  WORD CREATE DOCOL_H ,
+  DOES> @
+;
+```
+
+The word `CONSTANT` in the example reads a word, creates the link and
+name header, followed by three bytes corresponding to `call docol`,
+followed by the top element of the stack.  `DOES>` denotes the end of
+`CONSTANT`'s action and the start of the action of what the word
+__created by__ `CONSTANT` will do.  In other words, we can use it like
+this:
+
+```forth
+31415 CONSTANT PI
+PI . \ => 31415
+```
+The words following `DOES>` are executed on the same stack, but with
+the top element of the stack begin the address of the word defined by
+`CONSTANT`'s children.  That's why we can just deference the pointer
+with `@` and thus get the constant value out.
+
+What's happening is that `DOES>` is an immediate word that compiles
+`(DOES>)` followed by the 3 bytes representing `call dodoes` to the
+current word being defined (i.e. `CONSTANT`).  When `CONSTANT` is
+invoked, the invocation of `(DOES>)` sets the destination address of
+the `call` instruction in the _new_ word (whatever it may be) being
+defined (in this case, `PI`) to the byte _after_ `(DOES>)`, so that
+the new word starts its Code Field Address with `call XXXX`,
+where `XXXX` is the address after the location of `(DOES>)` in
+`CONSTANT`.  Then, `(DOES>)` acts like `EXIT`, resuming execution.
+
+This means you can share the same body code between words created by a
+word using `DOES>`, reducing wasted space.
+
 ### PAGE
 Clear the screen.
 ### HIDDEN
 ### ?HIDDEN ( fptr -- b )
 Given a `FIND` pointer, return whether or not the word is hidden.
-### NIP
-### TUCK
+### NIP ( a b -- b )
+### TUCK ( a b  -- b a b )
+Tucks the top element two locations prior.
 ### '0'
 ### '9'
 ### I
@@ -169,7 +219,7 @@ Sound emit.  Play the "frequency" with the duration.  The convention
 is that the lower the frequency number the higher it actually is in
 real life.
 ### PLAY
-### PLOT
+### PLOT ( -- )
 ### GETP
 ### DARKP
 ### TOGP
@@ -178,24 +228,18 @@ real life.
 ### BYE
 Exit the program.
 
-## WORD words
-### 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ( -- n )
-Pushes the number the word names onto the stack.
-### TS ( n -- n )
-Print the top of the stack non-destructively.
-### SPACE
-### USED
+## WORD Words
+### SQ
+### .Q
+### 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+Push the corresponding number onto the stack.
+### USED ( -- n )
+Returns how many bytes have been used (starting from `H0`).
 ### SIMG
-Writeback the "image" (data from `H0` to `HERE @` and the values of
-the `LATEST` and `HERE` pointers).  Note that if a previous image was
-there already it is overwritten.
 ### LIMG
-Restore from the image (see SIMG).
 ### >DFA
 ### :
-Begin a definition and enter compile mode.
 ### ;
-End the current definition and exit compile mode.
 ### MOD
 ### /
 ### NEGATE
@@ -226,9 +270,16 @@ End the current definition and exit compile mode.
 ### FORGET
 ### WITHIN
 ### NUM?
-### NUM
+### NUM ( -- n )
 ### CFA>
 ### PICK
+### U. ( n -- )
+### UWIDTH
+### SPACES ( n -- )
+### U.R
+### U.
+### .
+### .S
 ### SEE
 ### WORDS
 ### CASE
@@ -237,5 +288,3 @@ End the current definition and exit compile mode.
 ### ENDCASE
 ### WR
 ### STAR
-Print a star `*` onto the screen.  Must be the last word defined
-because `LATEST` is initialized to point to it.

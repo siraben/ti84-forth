@@ -418,6 +418,16 @@ bit_cache: .dw 0
         dec bc
         NEXT
 
+        defcode("2+", 2, 0, two_plus)
+        inc bc
+        inc bc
+        NEXT
+        
+        defcode("2-", 2, 0, two_minus)
+        dec bc
+        dec bc
+        NEXT        
+
         defcode(">R", 2, 0, to_r)
         PUSH_BC_RS
         pop bc
@@ -1023,16 +1033,16 @@ key_asm:
         b_call _PutC
         pop bc
         NEXT
-        
 
 
-        ;; defcode(".", 1, 0, u_dot)
-        ;; BC_TO_HL
-        ;; call printhl_safe
-        ;; ld a, ' '
-        ;; b_call _PutC
-        ;; pop bc
-        ;; NEXT
+        ;; Print the top of the stack.
+        defcode("T.", 1, 0, t_dot)
+        BC_TO_HL
+        call printhl_safe
+        ld a, ' '
+        b_call _PutC
+        pop bc
+        NEXT
 
         defcode("?", 1, 0, peek_addr)
         ld a, (bc)
@@ -1098,10 +1108,6 @@ akey_return_space:
         ld b, 0
         pop de
         NEXT
-
-
-        
-
 
 key_table:
 .db "     ",$00,"  " ;; 0-7
@@ -1365,8 +1371,10 @@ divACbyDE:
         .dw lit, 10, exit
 
 
-        defword("SPACE",5,0,space)
-        .dw lit, 32, emit, exit
+        defcode("SPACE",5,0,space)
+        ld a, ' '
+        b_call _PutC
+        NEXT
 
         defcode("CR",2,0,cr)
         b_call _Newline
@@ -1378,6 +1386,7 @@ divACbyDE:
         pop bc
         ld a, c
         ld (curCol), a
+        pop bc
         NEXT
 
         ;; Display a null-terminated string starting at the address
@@ -1408,11 +1417,7 @@ divACbyDE:
 #define STRING_BUFFER_SIZE 128
 
 ;; We can have a default program!
-
-string_buffer:  .fill 128,0
-;; string_buffer: .db ": .\" IMMED STATE @ NOT IF (COMP) S\" ' TELL , "
-;;                .db "ELSE BEGIN GETC DUP NUM 34 = IF DROP EXIT THEN "
-;;                .db "EMIT AGAIN THEN ; ",0
+string_buffer:   .fill 128, 0
 
 gets_ptr: .dw string_buffer
 
@@ -1981,6 +1986,74 @@ strcmp_exit:
         .dw latest, fetch, hidden
         .dw lbrac, exit
 
+        ;; Compile a call in the new word where call DOCOL used to be.
+        defcode("(DOES>)",7,0,does_brac)
+        push bc
+        ld bc, (var_latest)
+        inc bc
+        inc bc ;; Skip the link pointer.
+        ld a, (bc) ;; Get the length and flags of the word.
+        and F_LENMASK ;; Remove flags except for length.
+        ld h, 0
+        ld l, a
+        inc bc
+        add hl, bc
+        inc hl
+        inc hl
+        ;; Now we need to overwrite the destination of call docol with DE
+        ld (hl), e
+        inc hl
+        ld (hl), d
+        pop bc
+        
+        ;; Mimic exit
+        POP_DE_RS
+        NEXT
+        
+        ;; DE contains the address of the next instruction to go to
+        ;; Which is the "action" part of the word being defined with DOES>.
+
+        defcode("DOES>",5,128,does_start)
+        push de
+        ld de, (var_here)
+        ld hl, does_brac
+        ld a, l
+        ld (de), a
+        inc de
+        ld a, h
+        ld (de), a
+        inc de
+        ld a, $CD
+        ld (de), a
+        inc de
+        
+        ld hl, dodoes
+        ld a, l
+        ld (de), a
+        inc de
+        ld a, h
+        ld (de), a
+        inc de
+
+        ld hl, var_here
+        ld (hl), e
+        inc hl
+        ld (hl), d
+        pop de
+        NEXT
+
+dodoes:
+        PUSH_DE_RS
+        ;; Get return address of the DOES> body
+        pop de
+        BC_TO_HL
+        ;; The top of the stack contains the address of the data folloinwg
+        ;; call dodoes.  We want this on the top of the stack.
+        pop bc
+        push hl
+        NEXT
+        
+
 
         defcode("PAGE",4,0,page)
         push bc
@@ -2162,7 +2235,7 @@ strcmp_exit:
         
 
         defword(".",1,0,print_tos)
-        .dw u_dot, space,  exit
+        .dw u_dot, exit
 
         defword(".S",2,0,print_stack)
         .dw sp_fetch, dup, sz, fetch, less_than, zbranch, 16, dup, fetch, u_dot
@@ -2170,24 +2243,21 @@ strcmp_exit:
         
         ;; This word was bootstrapped from an interpreted definition.
         defword("SEE",3,0,see)
-        .dw word, find, here, fetch, latest, fetch, two, pick, over, neql, zbranch
-        .dw 12, nip, dup, fetch, branch, 65516, drop, swap, lit, 58, emit, space
-        .dw dup, id_dot, space, dup, qimmed, zbranch, 10, lit, 73, emit, space
-        .dw to_dfa, key, drop, two_dup, greater_than, zbranch, 214, dup, fetch, tick
-        .dw lit, over, eql, zbranch, 20, drop, two, add, dup, fetch, cr, u_dot, branch, 172
-        .dw tick, zbranch, over, eql, zbranch, 34, drop, space, lit, 48, emit
-        .dw lit, 66, emit, two, add, dup, fetch, cr, u_dot, branch, 128, tick
-        .dw branch, over, eql, zbranch, 28, drop, lit, 66, emit, space, two, add, dup
-        .dw fetch, cr, u_dot, branch, 90, tick, tick, over, eql, zbranch, 30, drop
-        .dw lit, 39, emit, space, two, add, dup, fetch, cfa_to, id_dot, space, branch
-        .dw 50, tick, exit, over, eql, zbranch, 28, drop, two_dup, two, add, neql
-        .dw zbranch, 10, lit, 69, emit, space, branch, 12, dup, cfa_to, id_dot, space, drop
-        .dw two, add, branch, 65314, lit, 59, emit, cr, two_drop, exit
+        .dw word, find, here, fetch, latest, fetch, lit, 2, pick, over, neql, zbranch, 12
+        .dw nip, dup, fetch, branch, 65514, drop, swap, lit, 58, emit, space, dup, id_dot
+        .dw space, dup, qimmed, zbranch, 10, lit, 73, emit, space, to_dfa, key, drop
+        .dw two_dup, greater_than, zbranch, 196, dup, fetch, tick, lit, over, eql, zbranch, 16
+        .dw drop, two_plus, dup, fetch, u_dot, branch, 160, tick, zbranch, over, eql, zbranch, 30
+        .dw drop, lit, 48, emit, lit, 66, emit, two_plus, dup, fetch, space, u_dot, branch, 120
+        .dw tick, branch, over, eql, zbranch, 24, drop, lit, 66, emit, space, two_plus, dup, fetch
+        .dw u_dot, branch, 86, tick, tick, over, eql, zbranch, 28, drop, lit, 39, emit, space, two_plus
+        .dw dup, fetch, cfa_to, id_dot, space, branch, 48, tick, exit, over, eql, zbranch, 26, drop
+        .dw two_dup, two_plus, neql, zbranch, 10, lit, 69, emit, space, branch, 12, dup, cfa_to
+        .dw id_dot, space, drop, two_plus, branch, 65332, lit, 59, emit, cr, two_drop, exit
 
         defword("WORDS",5,0,words)
         .dw latest, fetch, key, drop, qdup, zbranch, 24, dup, qhidden, not, zbranch, 8
         .dw dup, id_dot, space, fetch, branch, 65506, cr, exit
-
 
 
         defword("CASE",4,128,case)
@@ -2208,6 +2278,7 @@ strcmp_exit:
         ld c, (ix + 2)
         ld b, (ix + 3)
         NEXT
+        
 
 
 ;; Taken from http://z80-heaven.wikidot.com/sound
@@ -2342,50 +2413,50 @@ Set_ring_low:
 	ret
 
         
-FrequencyLUT:
- .dw 2100,1990,1870,1770,1670,1580,1490,1400,1320,1250,1180,1110
- .dw 1050, 996, 940, 887, 837, 790, 746, 704, 665, 627, 592, 559
- .dw  527, 498, 470, 444, 419, 395, 373, 352, 332, 314, 296, 279
- .dw  264, 249, 235, 222, 209, 198, 186, 176, 166, 157, 148, 140
- .dw  132, 124, 117, 111, 105,  99,  93,  88,  83,  78,  74,  70
- .dw   66,  62,  59,  55,  52,  49,  47,  44,  42,  39,  37,  35
- .dw   33,  31,  29,  28,  26,  25,  23,  22,  21,  20,  19,  18
- .dw   17,  16,  15,  14,  13,  12,  11,  10,  10,   9,   9,   8
- .dw    8,   7,   7,   7,   7,   6,   6,   5,   5,   5,   5,   4
+;; FrequencyLUT:
+;;  .dw 2100,1990,1870,1770,1670,1580,1490,1400,1320,1250,1180,1110
+;;  .dw 1050, 996, 940, 887, 837, 790, 746, 704, 665, 627, 592, 559
+;;  .dw  527, 498, 470, 444, 419, 395, 373, 352, 332, 314, 296, 279
+;;  .dw  264, 249, 235, 222, 209, 198, 186, 176, 166, 157, 148, 140
+;;  .dw  132, 124, 117, 111, 105,  99,  93,  88,  83,  78,  74,  70
+;;  .dw   66,  62,  59,  55,  52,  49,  47,  44,  42,  39,  37,  35
+;;  .dw   33,  31,  29,  28,  26,  25,  23,  22,  21,  20,  19,  18
+;;  .dw   17,  16,  15,  14,  13,  12,  11,  10,  10,   9,   9,   8
+;;  .dw    8,   7,   7,   7,   7,   6,   6,   5,   5,   5,   5,   4
  
-;; Play note A for duration D
-;; Taken from http://z80-heaven.wikidot.com/sound
-;; Work in progress.  Somewhat buggy.
+;; ;; Play note A for duration D
+;; ;; Taken from http://z80-heaven.wikidot.com/sound
+;; ;; Work in progress.  Somewhat buggy.
 
-        ;; (  note duration -- )
-        defcode("PLAY",4,0,play_note)
-        PUSH_DE_RS
-        ld d, c
-        pop bc
-        ld a, c
-PlayNote:
-        ld hl,FrequencyLUT
-        add a,l
-        ld l,a
-        jr nc, PlayNote_cont
-        inc h
-        ld c,(hl)
-        inc hl
-PlayNote_cont:        
-        ld b,(hl)
-;now BC is the frequency for the note
-NoteLoop:
-        push bc
-        ld hl,4096
-        call p_FreqOut
-        pop bc
-        dec bc
-        ld a,b
-        or c
-        jr nz,NoteLoop
-        POP_DE_RS
-        pop bc
-        NEXT
+;;         ;; (  note duration -- )
+;;         defcode("PLAY",4,0,play_note)
+;;         PUSH_DE_RS
+;;         ld d, c
+;;         pop bc
+;;         ld a, c
+;; PlayNote:
+;;         ld hl,FrequencyLUT
+;;         add a,l
+;;         ld l,a
+;;         jr nc, PlayNote_cont
+;;         inc h
+;;         ld c,(hl)
+;;         inc hl
+;; PlayNote_cont:        
+;;         ld b,(hl)
+;; ;now BC is the frequency for the note
+;; NoteLoop:
+;;         push bc
+;;         ld hl,4096
+;;         call p_FreqOut
+;;         pop bc
+;;         dec bc
+;;         ld a,b
+;;         or c
+;;         jr nz,NoteLoop
+;;         POP_DE_RS
+;;         pop bc
+;;         NEXT
 
 
         defcode("PLOT",4,0,plot)
@@ -2540,7 +2611,7 @@ here_start:     .fill 512, 0
 
 data_start:
 scratch:
-        .fill 512, 0
+                .fill 512, 0
 save_latest: .dw star
 save_here:   .dw scratch
 data_end

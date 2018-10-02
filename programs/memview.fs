@@ -9,7 +9,7 @@ NUM 36 CONST STEPL
 : PP PAGE PLOT ;
 \ Memory slice; view the memory location on the stack.
 : MEMSLICE ( addr -- )
-  PLOTSS SWAP PLOTSZ CMOVE PP
+  PLOTSS PLOTSZ CMOVE PP
 ;
 
 : MEMVIEW ( addr -- addr )
