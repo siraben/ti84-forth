@@ -90,8 +90,9 @@ start:
         ld (hl), b
         push bc
 
-        ;; For some weird reason, either the spasm-ng assembler or TI-84
-        ;; can't store the string "[", so we have to fix it by changing the value of rbrac's string.
+        ;; For some weird reason, either the spasm-ng assembler or
+        ;; TI-84 can't store the string "[", so we have to fix it by
+        ;; changing the value of rbrac's string.
 
         ld hl, name_rbrac
         inc hl
@@ -122,7 +123,7 @@ docol:
         PUSH_DE_RS
         pop de
         NEXT
-        
+
 
 done:
         ;; We reach here at the end of the program.
@@ -155,16 +156,16 @@ possible_error_msg: .db "Warning: Stack not empty or underflowed.",0
   #endif
 _:
   #define label_str concat("\"",label,"\"")
-  #define name_label concat("\"name_",label,"\"")  
+  #define name_label concat("\"name_",label,"\"")
   #define name_str concat("\"",name,"\"")
-  clr()  
+  clr()
   wr(name_label,":")
   wr(".dw ", eval(prev))
   wr(".db ", eval(len+flags))
   wr(".db ", "\"",name_str,"\",0")
   wr(label_str, ":")
   run()
-  
+
 #endmacro
 
 #define CALL_DOCOL call docol
@@ -184,9 +185,9 @@ _:
   #endif
 _:
   #define label_str concat("\"",label,"\"")
-  #define name_label concat("\"name_",label,"\"")  
+  #define name_label concat("\"name_",label,"\"")
   #define name_str concat("\"",name,"\"")
-  clr()  
+  clr()
   wr(name_label,":")
   wr(".dw ", eval(prev))
   wr(".db ", eval(len+flags))
@@ -209,7 +210,7 @@ _:
         push bc
         ld bc, 5678
         NEXT
-        
+
         defcode("DUP",3,0,dup)
         push bc
         NEXT
@@ -314,7 +315,7 @@ bit_cache: .dw 0
         ld c, e
         pop de
         NEXT
-        
+
         ;; Bitwise NOT.
         defcode("INVERT",6,0,invert)
         ld a, c
@@ -324,7 +325,7 @@ bit_cache: .dw 0
         ld a, b
         cpl
         ld b, a
-        
+
         NEXT
 
         defcode("DROP",4,0,drop)
@@ -358,7 +359,7 @@ bit_cache: .dw 0
         defcode("-ROT",4,0,nrot)
         PUSH_DE_RS
         pop hl
-        pop de 
+        pop de
         push bc
         push de
         HL_TO_BC
@@ -410,7 +411,7 @@ bit_cache: .dw 0
         inc bc
         inc bc
         NEXT
-        
+
         defcode("4-", 2, 0, four_minus)
         dec bc
         dec bc
@@ -422,11 +423,11 @@ bit_cache: .dw 0
         inc bc
         inc bc
         NEXT
-        
+
         defcode("2-", 2, 0, two_minus)
         dec bc
         dec bc
-        NEXT        
+        NEXT
 
         defcode(">R", 2, 0, to_r)
         PUSH_BC_RS
@@ -437,7 +438,7 @@ bit_cache: .dw 0
         push bc
         POP_BC_RS
         NEXT
-        
+
         defcode("RDROP",5,0,r_drop)
         POP_HL_RS
         NEXT
@@ -465,13 +466,13 @@ bit_cache: .dw 0
         push bc ;; old stack top
         push de ;; push address of string
         HL_TO_BC ;; BC now contains the string length
-        
+
         ;; Skip the string.
         add hl, de
         ;; Skip null pointer.  (Even though we have the length, because
         ;; we don't have a bcall Linux that can print out a string with
         ;; a certain length).
-        
+
         inc hl
         ex de, hl
         NEXT
@@ -483,7 +484,7 @@ bit_cache: .dw 0
         .dw tick, litstring, comma, here, fetch, zero, comma, get_char_forth, dup
         .dw lit, 34, neql, zbranch, 8, c_comma, branch, 65518, drop, zero, c_comma
         .dw dup, here, fetch, swap, sub, three, sub, swap, store, exit
-        
+
         .dw state, fetch, not, zbranch, 64, tick, litstring, comma, here, fetch
         .dw zero, comma, get_char_forth, dup, lit, 34, neql, zbranch, eight, c_comma
         .dw branch, 65518, drop, zero, c_comma, dup, here, fetch, swap, sub, three, sub
@@ -536,7 +537,7 @@ strchr_loop:
 strchar_fail:
         jp fal
 
-        
+
         defcode("!", 1,0,store)
         pop hl
         ld a, l
@@ -603,7 +604,7 @@ strchar_fail:
         ld (bc), a
         pop bc
         NEXT
-        
+
         defcode("C@", 2,0, fetch_byte)
         ld a, (bc)
         ld c, a
@@ -697,7 +698,7 @@ var_latest:
         inc hl
         ld (hl), 0
         NEXT
-        
+
 
         cell_alloc(var_stack_empty,1)
         defcode("?SE", 3, 0, stack_emptyq)
@@ -765,10 +766,10 @@ var_latest:
 
         defcode("'",1,0,tick)
         ld a, (de)
-        ld l, a   
-        inc de    
+        ld l, a
+        inc de
         ld a, (de)
-        ld h, a   
+        ld h, a
         inc de
         push bc
         HL_TO_BC
@@ -782,14 +783,14 @@ _comma:
         ;; Remember that var_here is a pointer, so you need to do
         ;; double indirection!
         push de
-        
+
         ld hl, (var_here)
 
         ld (hl), c
         inc hl
         ld (hl), b
         inc hl
-        
+
         ld de, var_here
         ex de, hl
         ld (hl), e
@@ -809,7 +810,7 @@ _c_comma
         ld hl, (var_here)
         ld (hl), c
         inc hl
-        
+
         ld de, var_here
         ex de, hl
         ld (hl), e
@@ -819,8 +820,8 @@ _c_comma
         pop de
 
         ret
-        
-        
+
+
         ;; Actually, we do have a stack pointer, but it's not probably
         ;; what is normally expected of Forths.
         defcode("SP@", 3, 0, sp_fetch)
@@ -849,7 +850,7 @@ var_sp:
         defcode("RP!",3,0,rp_store)
         pop ix
         NEXT
-        
+
         defcode("BRANCH", 6, 0, branch)
         ld a, (de)
         ld l, a
@@ -911,7 +912,7 @@ zbranch_fail:
         inc de
 
         pop bc ;; New top of stack
-        
+
         NEXT
 
         defcode("?DUP",4,0,qdup)
@@ -957,13 +958,13 @@ zbranch_fail:
         push bc
         call cpHLBC
         pop bc
-        pop hl        
+        pop hl
         jp nc, gt_check_neq
         jp fal
 gt_check_neq:
         call cpHLBC
         jp z, fal
-        jp tru        
+        jp tru
 
         defcode("0=",2,0,zeql)
         ld hl, 0
@@ -983,7 +984,7 @@ gt_check_neq:
 tru:
         ld bc, 1
         NEXT
-        
+
 ;; Place a false value on the top of the stack.
 fal:
         ld bc, 0
@@ -1002,12 +1003,12 @@ printhl_safe:
         pop hl
         ret
 
-        
+
 str_println:
         b_call _PutS
         b_call _Newline
         ret
-        
+
 str_print:
         b_call _PutS
         ret
@@ -1034,7 +1035,7 @@ key_asm:
         ld c, a
         ld b, 0
         NEXT
-        
+
         defcode("EMIT",4,0,emit)
         ld a, c
         b_call _PutC
@@ -1071,7 +1072,7 @@ key_asm:
         push de
         call akey_asm
         pop de
-        
+
         push bc
         ld b, 0
         ld c, a
@@ -1094,7 +1095,7 @@ akey_asm:
         ld a, (hl)
         cp ' '
         jp z, akey_asm
-        
+
         ret
 
 akey_return_space:
@@ -1164,55 +1165,52 @@ mul16By16:
         defcode("*",1,0,mult)
         PUSH_DE_RS
         pop de ;; get the second element from the stack
-        
-    push bc
-        push af
-            ld hl, 0
-            ld a, b
-            ld b, h
-            or a
-                        rla \ jr nc, $+5 \ ld h, d \ ld l, e
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
-            ld b, a
-            push hl
-            ld hl, 0
-            ld a, c
-            ld c, h
-            or a
-                        rla \ jr nc, $+5 \ ld h, d \ ld l, e
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
-            add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
-            ld d, b
-            pop bc
-            ld e, a
-            ld a, c
-            add a, h
-            ld h, a
-            ld a, e
-            adc a, b
-            ld e, a
-            jr nc, $ + 3
-            inc d
-        pop af
-    pop bc
 
-       
+        push bc
+        push af
+        ld hl, 0
+        ld a, b
+        ld b, h
+        or a
+        rla \ jr nc, $+5 \ ld h, d \ ld l, e
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, b
+        ld b, a
+        push hl
+        ld hl, 0
+        ld a, c
+        ld c, h
+        or a
+        rla \ jr nc, $+5 \ ld h, d \ ld l, e
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+        add hl, hl \ rla \ jr nc, $+4 \ add hl, de \ adc a, c
+        ld d, b
+        pop bc
+        ld e, a
+        ld a, c
+        add a, h
+        ld h, a
+        ld a, e
+        adc a, b
+        ld e, a
+        jr nc, $ + 3
+        inc d
+        pop af
+        pop bc
+
         HL_TO_BC
         POP_DE_RS
         NEXT
-
-
 
         ;; ( a b -- remainder quotient )
         defcode("/MOD", 4, 0, divmod)
@@ -1341,7 +1339,7 @@ divACbyDE:
         push hl
         POP_DE_RS
         NEXT
-     
+
         ;; Ad-hoc solution to read a number.
 
         defword("0",1,0,zero)
@@ -1398,7 +1396,7 @@ divACbyDE:
 
         ;; Display a null-terminated string starting at the address
         ;; given to by the TOS.
-        
+
         defcode("PUTS",4,0,putstr)
         BC_TO_HL
         b_call _PutS
@@ -1411,7 +1409,6 @@ divACbyDE:
         b_call _NewLine
         pop bc
         NEXT
-
 
 ;; Get a full string of input (i.e. buffer user input for WORD and number etc.)
 ;; Input: none
@@ -1434,7 +1431,7 @@ gets_ptr: .dw string_buffer
         pop bc
         pop de
         NEXT
-        
+
 get_str:
         ld hl, gets_ptr
         ld de, string_buffer
@@ -1454,10 +1451,10 @@ key_loop:
         push de
         push bc
         b_call _GetKey
-        pop bc     
+        pop bc
         pop de
         pop hl
-        
+
         cp kEnter
         jp nz, not_enter
 
@@ -1466,11 +1463,11 @@ key_loop:
 
         ;; We should echo enter.
         b_call _NewLine
-        
+
         ld a, b
         or a
         jp z, no_chars
-        
+
         xor a
         ld (de), a
 
@@ -1519,7 +1516,7 @@ not_backup_line:
         ld a, ' '
         b_call _PutMap
         jp key_loop
-        
+
 not_del:
         cp kClear
         jr nz, not_clear
@@ -1550,13 +1547,13 @@ not_del:
 clear_loop:
         b_call _PutC
         djnz clear_loop
-        
+
         ld (hl), b
         dec hl
         ld (hl), c
         ld de, string_buffer
         jp key_loop
-        
+
 not_clear:
         ld c, a
         ld a, b
@@ -1579,7 +1576,7 @@ not_clear:
         ld de, key_table
         add hl, de
         pop de
-        
+
         ld a, (hl)
         ;; We got a space back as per the table, so it's not printable.  Try again.
         cp ' '
@@ -1608,7 +1605,7 @@ get_char_asm:
         push de
         ld hl, gets_ptr
         ld de, (gets_ptr)
-        
+
         ld a, (de)
         or a
         jp z, get_char_end
@@ -1620,7 +1617,6 @@ get_char_end:
         pop de
         pop hl
         ret
-
 
         defcode("UNGETC", 6, 0, unget_char_forth)
 
@@ -1677,7 +1673,8 @@ word_retry:
 skip_space:
         call get_char_asm
         or a
-        jp z, empty_word  ;; get_char_asm returned nothing, so we need to retry with get_str
+        jp z, empty_word  ;; get_char_asm returned nothing, so we need to retry
+                          ;; with get_str
         cp ' '
         jp z, skip_space
         cp '\\'
@@ -1700,9 +1697,9 @@ skip_comment:
 
 actual_word:
         ld c, 1
-        ;; A contains the character.        
+        ;; A contains the character.
         ld hl, (word_buffer_ptr)
-actual_word_write:        
+actual_word_write:
         ld (hl), a
 actual_word_loop:
         inc hl
@@ -1715,7 +1712,7 @@ actual_word_loop:
         ;; A is another non-space, printable character.
         inc c
         jp actual_word_write
-        
+
 word_done:
         ;; Either read NUL or a space.
         xor a
@@ -1746,7 +1743,7 @@ word_done:
         ld (hl), a
         NEXT
 
-        
+
         ;; Convert a pointer returned by FIND to the start of the name
         ;; field address (something I made up).
         defcode(">NFA",4,0,to_nfa)
@@ -1754,7 +1751,7 @@ word_done:
         inc bc
         inc bc
         NEXT
-        
+
         ;; Convert a pointer returned by FIND to the start of the code
         ;; field address.
         defcode(">CFA",4,0,to_cfa)
@@ -1810,7 +1807,7 @@ find_succeed:
         NEXT
 find_retry:
         dec de
-find_succ_hidden:        
+find_succ_hidden:
         dec de
         dec de
         push hl
@@ -1824,7 +1821,7 @@ find_succ_hidden:
         or a
         jp z, find_maybe_fail
 
-find_retry_cont:        
+find_retry_cont:
         inc hl
         inc hl
         inc hl
@@ -1839,8 +1836,7 @@ find_maybe_fail:
 find_fail:
         pop hl
         pop de
-        ld bc, 0
-        NEXT
+        jp fal
 
 ;; strcmp [Strings]
 ;;  Determines if two strings are equal, and checks alphabetical sort order.
@@ -1877,7 +1873,7 @@ strcmp_exit:
         b_call _PopRealO1 ;; from the floating point stack
         b_call _PushRealO1
         b_call _ChkFindSym
-    
+
         ld    hl, data_start - $9D95 + 4    ; have to add 4 because of tasmcmp token
                                             ; (2 bytes) and for size bytes (2 bytes)
         add    hl, de        ;hl now points to data location in original program.
@@ -1885,7 +1881,7 @@ strcmp_exit:
         ld    hl, data_start
         ld    bc, data_end - data_start
         ldir
-        
+
         pop de
         pop bc
         NEXT
@@ -1896,7 +1892,7 @@ strcmp_exit:
         .dw here, fetch, hz, sub, exit
 
         ;; Save the current state into the scratch buffer.
-        ;; Assuming the current state is the data after the buffer 
+        ;; Assuming the current state is the data after the buffer
         defword("SIMG",4,0,save_image)
         .dw here, fetch, lit, save_here, store
         .dw latest, fetch, lit, save_latest, store
@@ -2011,11 +2007,11 @@ strcmp_exit:
         inc hl
         ld (hl), d
         pop bc
-        
+
         ;; Mimic exit
         POP_DE_RS
         NEXT
-        
+
         ;; DE contains the address of the next instruction to go to
         ;; Which is the "action" part of the word being defined with DOES>.
 
@@ -2032,7 +2028,7 @@ strcmp_exit:
         ld a, $CD
         ld (de), a
         inc de
-        
+
         ld hl, dodoes
         ld a, l
         ld (de), a
@@ -2058,7 +2054,7 @@ dodoes:
         pop bc
         push hl
         NEXT
-        
+
 
 
         defcode("PAGE",4,0,page)
@@ -2117,7 +2113,7 @@ dodoes:
         defcode("NIP",3,0,nip)
         pop hl
         NEXT
-        
+
         defcode("TUCK",4,0,tuck)
         pop hl
         push bc
@@ -2155,7 +2151,7 @@ dodoes:
         defword("REPEAT",6,128,repeat)
         .dw tick, branch, comma, swap, here, fetch, sub, comma
         .dw dup, here, fetch, swap, sub, swap, store, exit
-        
+
         defword("CHAR",4,0,char)
         .dw word, two_drop, lit, word_buffer, fetch_byte, exit
 
@@ -2178,7 +2174,7 @@ dodoes:
         defword("VAR",3,0,variable)
         .dw lit, 1, cells, allot, word, create, docol_header, lit, lit, comma, comma
         .dw lit, exit, comma, exit
- 
+
         defword("DO",2,128, do)
         .dw here, fetch, tick, to_r, comma, tick, to_r, comma, exit
 
@@ -2238,7 +2234,7 @@ dodoes:
 
         defword("U.",2,0,u_dot)
         .dw u_dot_, space, exit
-        
+
 
         defword(".",1,0,print_tos)
         .dw u_dot, exit
@@ -2246,7 +2242,7 @@ dodoes:
         defword(".S",2,0,print_stack)
         .dw sp_fetch, dup, sz, fetch, less_than, zbranch, 16, dup, fetch, u_dot
         .dw two, add, branch, 65512, drop, exit
-        
+
         ;; This word was bootstrapped from an interpreted definition.
         defword("SEE",3,0,see)
         .dw word, find, here, fetch, latest, fetch, lit, 2, pick, over, neql, zbranch, 12
@@ -2265,8 +2261,6 @@ dodoes:
         .dw latest, fetch, key, drop, qdup, zbranch, 24, dup, qhidden, not, zbranch, 8
         .dw dup, id_dot, space, fetch, branch, 65506, cr, exit
 
-
-
         defword("CASE",4,128,case)
         .dw zero, exit
 
@@ -2279,11 +2273,84 @@ dodoes:
         defword("ENDCASE", 7, 128, endcase)
         .dw tick, drop, comma, qdup, zbranch, 8, then, branch, -10, exit
 
-
         defcode("I",1,0,curr_loop_index)
         push bc
         ld c, (ix + 2)
         ld b, (ix + 3)
+        NEXT
+
+
+blk_name_buffer: .fill 9, 0
+        ;; ( name_string -- block_start )
+        defcode("CBLK",4,0,create_block)
+        ;; First make a variable name in OP1.
+        BC_TO_HL
+        push de
+        ld de, blk_name_buffer
+        ;; Indicate that this variable is a program.
+        ld a, ProgObj
+        ld (de), a
+        inc de
+        ;; Copy the 8-character name.
+        ld bc, 8
+        ldir
+
+        push ix
+        ld hl, blk_name_buffer
+        b_call _Mov9ToOP1
+        ;; Allocate 255 bytes (default block size, change later if needed)
+        ld hl, 255
+        b_call _CreateProg
+        pop ix
+        ;; DE contains the start of the memory location.
+        ld b, d
+        ld c, e
+        ex de, hl
+        pop de
+
+        ld (hl), 255
+        inc hl
+        ld (hl), 0
+        inc bc
+        inc bc
+        NEXT
+
+        ;; ( name_string -- data_start )
+        ;; Return 0 if not found.
+        defcode("FBLK",4,0,find_block)
+        BC_TO_HL
+        push de
+        ld de, blk_name_buffer+1 ;; skip the tag byte.
+        ld bc, 8
+        ldir
+
+        push ix
+        ld hl, blk_name_buffer
+        b_call _Mov9ToOP1
+        b_call _ChkFindSym
+        pop ix
+        jp c, fblk_fail
+        ld b, d
+        ld c, e
+        pop de
+        inc bc
+        inc bc
+        NEXT
+fblk_fail:
+        pop de
+        jp fal
+
+        defcode("RUN",3,0,run)
+        BC_TO_HL
+        push de
+        ld de, string_buffer
+        ld bc, STRING_BUFFER_SIZE
+        ldir
+        ;; Reset get string pointer so that INTERPRET can run the entire string.
+        ld hl, string_buffer
+        ld (gets_ptr), hl
+        pop de
+        pop bc
         NEXT
 
 
@@ -2304,26 +2371,26 @@ p_FreqOut:
 ;     BC is the frequency
     xor    a
 FreqOutLoop1:
-    push    bc
-    xor     3    ;this will toggle the lower two bits (the data being sent to the link port)
-    ld    e,a
+        push    bc
+        xor     3    ;this will toggle the lower two bits (the data being sent to the link port)
+        ld    e,a
 FreqOutLoop2:
-    ld    a,h
-    or    l
-    jr    z,FreqOutDone
-    cpd
-    jp    pe,FreqOutLoop2
-    ld    a,e
-    scf
+        ld    a,h
+        or    l
+        jr    z,FreqOutDone
+        cpd
+        jp    pe,FreqOutLoop2
+        ld    a,e
+        scf
 FreqOutDone:
-    pop    bc
-    out    (0),a
-    jr    c,FreqOutLoop1
-    xor b
-    nop
-    nop
-    out (0),a       ;reset the port, else the user will be really annoyed.
-    ret
+        pop    bc
+        out    (0),a
+        jr    c,FreqOutLoop1
+        xor b
+        nop
+        nop
+        out (0),a       ;reset the port, else the user will be really annoyed.
+        ret
 
         defcode("IN0",3,0,in_zero)
         push bc
@@ -2342,83 +2409,83 @@ FreqOutDone:
         ld b,0
         ld c,a
         NEXT
-        
+
 ;; Read data from the link port.
 read_z:
-	ld b,0			; reset variables (b = byte,
-	ld d,1			; d = bitmask, e = clockstate)
-	in a,(0)		; Get byte and check tip
-	bit 2,a
-	call z,State_zero
-	call nz,State_one
+        ld b,0			; reset variables (b = byte,
+        ld d,1			; d = bitmask, e = clockstate)
+        in a,(0)		; Get byte and check tip
+        bit 2,a
+        call z,State_zero
+        call nz,State_one
 Read_go:
-	in a,(0)		; Is clockstate changed?
-	bit 2,a
-	ld a,e
-	jr z,Clock_is_low
-	or a
-	jr z,Clockchanged	; Yes (High)
-	jr Read_go		; No
+        in a,(0)		; Is clockstate changed?
+        bit 2,a
+        ld a,e
+        jr z,Clock_is_low
+        or a
+        jr z,Clockchanged	; Yes (High)
+        jr Read_go		; No
 Clock_is_low:
-	or a
-	jr z,Read_go		; No  (Low)
+        or a
+        jr z,Read_go		; No  (Low)
 Clockchanged:			; Yes
-	in a,(0)		; Get value from port
-	bit 2,a
-	call z,State_zero	; Store new clockstate
-	call nz,State_one
-	bit 3,a
-	call nz,Or_byte	; Or them, depending on state of ring
-	rlc d
-	ld a,d
-	cp 1
-	jr z,Stop_read		; Yes: quit
-	jr Read_go		; No, next bit
+        in a,(0)		; Get value from port
+        bit 2,a
+        call z,State_zero	; Store new clockstate
+        call nz,State_one
+        bit 3,a
+        call nz,Or_byte	; Or them, depending on state of ring
+        rlc d
+        ld a,d
+        cp 1
+        jr z,Stop_read		; Yes: quit
+        jr Read_go		; No, next bit
 Or_byte:
-	ld a,b
-	or d
-	ld b,a
-	ret
+        ld a,b
+        or d
+        ld b,a
+        ret
 State_zero:
-	ld e,0
-	ret
+        ld e,0
+        ret
 State_one:
-	ld e,1
-	ret
+        ld e,1
+        ret
 Stop_read:
-	ld a,b
-	ret
+        ld a,b
+        ret
 
 Write_z:
-	ld c,a			; Store byte
-	ld d,1			; Create bitmask
-	ld e,$D1		; Init linkport value
+        ld c,a			; Store byte
+        ld d,1			; Create bitmask
+        ld e,$D1		; Init linkport value
 Write_go:
-	ld a,c			; Retrieve byte
-	and d			; and with bitmask
-	or a
-	call z,Set_ring_low
-	call nz,Set_ring_high	; Set data line (ring) according to bit
-	rlc d			; rotate bitmask
-	ld a,e			; retrieve linkport value
-	out (0),a		; Set linkport
-	xor 1			; invert clockstate
-	ld e,a			; store linkport value
-	ld b,6
+        ld a,c			; Retrieve byte
+        and d			; and with bitmask
+        or a
+        call z,Set_ring_low
+        call nz,Set_ring_high	; Set data line (ring) according to bit
+        rlc d			; rotate bitmask
+        ld a,e			; retrieve linkport value
+        out (0),a		; Set linkport
+        xor 1			; invert clockstate
+        ld e,a			; store linkport value
+        ld b,6
 Delay_loop:
-	djnz Delay_loop	; Short delay
-	ld a,d			; bitmask back to original?
-	cp 1
-	jr nz,Write_go		; No: Next bit
-	ret			; Yes: Done
+        djnz Delay_loop	; Short delay
+        ld a,d			; bitmask back to original?
+        cp 1
+        jr nz,Write_go		; No: Next bit
+        ret			; Yes: Done
 Set_ring_high:
-	res 1,e
-	ret
+        res 1,e
+        ret
 Set_ring_low:
-	set 1,e
-	ret
+        set 1,e
+        ret
 
-        
+
 ;; FrequencyLUT:
 ;;  .dw 2100,1990,1870,1770,1670,1580,1490,1400,1320,1250,1180,1110
 ;;  .dw 1050, 996, 940, 887, 837, 790, 746, 704, 665, 627, 592, 559
@@ -2429,7 +2496,7 @@ Set_ring_low:
 ;;  .dw   33,  31,  29,  28,  26,  25,  23,  22,  21,  20,  19,  18
 ;;  .dw   17,  16,  15,  14,  13,  12,  11,  10,  10,   9,   9,   8
 ;;  .dw    8,   7,   7,   7,   7,   6,   6,   5,   5,   5,   5,   4
- 
+
 ;; ;; Play note A for duration D
 ;; ;; Taken from http://z80-heaven.wikidot.com/sound
 ;; ;; Work in progress.  Somewhat buggy.
@@ -2448,7 +2515,7 @@ Set_ring_low:
 ;;         inc h
 ;;         ld c,(hl)
 ;;         inc hl
-;; PlayNote_cont:        
+;; PlayNote_cont:
 ;;         ld b,(hl)
 ;; ;now BC is the frequency for the note
 ;; NoteLoop:
@@ -2499,20 +2566,20 @@ get_pixel:
         add    hl, de
         add    hl, hl
         add    hl, hl
-    
+
         ld     e, a
         srl    e
         srl    e
         srl    e
         add    hl, de
-    
+
         ld     de, plotSScreen
         add    hl, de
         and 7
         ld a, $80
         ret z
         ld b, a
-        
+
 get_pixel_loop:
         rrca
         djnz get_pixel_loop
@@ -2528,11 +2595,11 @@ get_pixel_loop:
         call   get_pixel
         or     (hl)
         ld     (hl), a
-        pop de        
+        pop de
         pop bc
         NEXT
-        
-        
+
+
         defcode("TOGP",4,0,toggle_pixel)
         ld l, c
         pop bc
@@ -2541,7 +2608,7 @@ get_pixel_loop:
         call   get_pixel
         xor    (hl)
         ld     (hl), a
-        pop de                
+        pop de
         pop bc
         NEXT
 
@@ -2554,7 +2621,7 @@ get_pixel_loop:
         cpl
         and    (hl)
         ld     (hl), a
-        pop de                      
+        pop de
         pop bc
         NEXT
 
@@ -2564,26 +2631,27 @@ get_pixel_loop:
 ;; variable width font instead of the large one, so that we may place
 ;; it on the screen.
 
+        ;; ( address_to_write_to -- )
         defword("WR", 2, 0, write)
         ;; The second get_str_forth is necessary as we don't want the
         ;; interpreter to read the entered text
-        .dw cr, get_str_forth, cr, lit, word_buffer, swap, __string_buffer_size,  cmove, get_str_forth, exit
-        
+        .dw cr, get_str_forth, cr, __string_buffer, swap, __string_buffer_size, cmove, get_str_forth, exit
+
         defcode("PN", 2, 0, print_nice)
         ld hl, 0
         ld (PenCol), hl
         BC_TO_HL
         b_call _VPutS
         b_call _NewLine
-        pop bc        
+        pop bc
         NEXT
-        
+
         defcode("BYE",3,128,bye)
         jp done
 
-	;; MAKE SURE THIS IS THE LAST WORD TO BE DEFINED!
-	defword("STAR", 4, 0, star)
-	.dw lit, 42, emit, exit
+        ;; MAKE SURE THIS IS THE LAST WORD TO BE DEFINED!
+        defword("STAR", 4, 0, star)
+        .dw lit, 42, emit, exit
 
 setup_data_segment:
         ld de, here_start
@@ -2613,11 +2681,11 @@ prog:
         .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -66
         .dw done
 
-here_start:     .fill 512, 0
+here_start:     .fill 256, 0
 
 data_start:
 scratch:
-                .fill 512, 0
+                .fill 256, 0
 save_latest: .dw star
 save_here:   .dw scratch
 data_end:
