@@ -477,17 +477,24 @@ bit_cache: .dw 0
         NEXT
 
         defword("SQ",2,128,s_quote)
+        .dw state, fetch, zbranch, 54, here, fetch, get_char_forth, dup, lit, 34
+        .dw neql, zbranch, 12, over, store_byte, one_plus, branch, 65514, drop
+        .dw over, zero, store_byte, here, fetch, sub, here, fetch, swap, branch, 60
+        .dw tick, litstring, comma, here, fetch, zero, comma, get_char_forth, dup
+        .dw lit, 34, neql, zbranch, 8, c_comma, branch, 65518, drop, zero, c_comma
+        .dw dup, here, fetch, swap, sub, three, sub, swap, store, exit
+        
         .dw state, fetch, not, zbranch, 64, tick, litstring, comma, here, fetch
         .dw zero, comma, get_char_forth, dup, lit, 34, neql, zbranch, eight, c_comma
-        .dw branch, 65518, drop, zero, c_comma, dup, here, fetch, swap, sub, two, sub
+        .dw branch, 65518, drop, zero, c_comma, dup, here, fetch, swap, sub, three, sub
         .dw swap, store, branch, 44, here, fetch, get_char_forth, dup, lit, 34, neql, zbranch
         .dw 12, over, store_byte, one_plus, branch, 65514, drop, here, fetch, sub, here
         .dw fetch, swap, exit
 
         defword(".Q",2,128,dot_quote)
-        .dw state, fetch, not, zbranch, 14, s_quote, tick, tell, comma
-        .dw branch, 26, get_char_forth, dup, lit, 34, eql, zbranch, 6
-        .dw drop, exit, emit, branch, 65514, exit
+        .dw state, fetch, zbranch, 30, get_char_forth, dup, lit, 34, eql
+        .dw zbranch, 6, drop, exit, emit, branch, 65514, branch, 10, s_quote
+        .dw tick, tell, comma, exit
 
         defcode("TELL",4,0,tell)
         pop bc
@@ -1417,8 +1424,7 @@ divACbyDE:
 #define STRING_BUFFER_SIZE 128
 
 ;; We can have a default program!
-string_buffer:   .fill 128, 0
-
+string_buffer: .fill 128,0
 gets_ptr: .dw string_buffer
 
         defcode("GETS",4,0,get_str_forth)
@@ -2260,6 +2266,7 @@ dodoes:
         .dw dup, id_dot, space, fetch, branch, 65506, cr, exit
 
 
+
         defword("CASE",4,128,case)
         .dw zero, exit
 
@@ -2278,7 +2285,6 @@ dodoes:
         ld c, (ix + 2)
         ld b, (ix + 3)
         NEXT
-        
 
 
 ;; Taken from http://z80-heaven.wikidot.com/sound
@@ -2614,4 +2620,4 @@ scratch:
                 .fill 512, 0
 save_latest: .dw star
 save_here:   .dw scratch
-data_end
+data_end:
