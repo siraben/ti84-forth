@@ -1418,9 +1418,9 @@ divACbyDE:
 ;; gets_ptr points to the start of the buffer
 
 ;; We also want immediate feedback to the user.
-#define STRING_BUFFER_SIZE 255
+#define STRING_BUFFER_SIZE 128
 
-string_buffer: .fill 255,0
+string_buffer: .fill 128,0
 gets_ptr: .dw string_buffer
 
         defcode("GETS",4,0,get_str_forth)
@@ -1435,6 +1435,7 @@ get_str:
         ld hl, gets_ptr
         ld de, string_buffer
 
+        ;; Reinitialize the gets_ptr to point to the buffered input.
         ld (hl), e
         inc hl
         ld (hl), d
@@ -1593,7 +1594,6 @@ write_char:
 ;; Get the next character from the buffer.
 ;; A contains the next character from the buffer.
         defcode("GETC", 4, 0, get_char_forth)
-
         call get_char_asm
         push bc
         ld b, 0
@@ -1676,6 +1676,10 @@ skip_space:
                           ;; with get_str
         cp ' '
         jp z, skip_space
+        cp '\n' ;; if we're reading from a converted text file.
+        jp z, skip_space
+        cp '\t'
+        jp z, skip_space        
         cp '\\'
         jp z, skip_comment
         jp actual_word
@@ -1683,17 +1687,20 @@ skip_space:
 empty_word:
         jp word_retry
 skip_comment:
-        ;; Since we know get_str reads one line of input, we can just
-        ;; invoke WORD again to actually get the next word.
-        push hl
-        push de
-        push bc
-        call get_str
-        pop bc
-        pop de
-        pop hl
-        jp word_restart
+        ;; We could be reading from a text file.
+        call get_char_asm
+        
+        ;; Ran out of input.
+        or a
+        jp z, empty_word
 
+        ;; Newline found.  Then go to start.
+        cp '\n'
+        jp z, skip_space
+
+        ;; Some other character.
+        jp skip_comment
+        
 actual_word:
         ld c, 1
         ;; A contains the character.
@@ -2364,16 +2371,12 @@ fblk_fail:
         pop de
         jp fal
 
+        ;; Switch the input stream to the pointer on the stack.
+        ;; ( prog_start_ptr --  )
+        ;; When WORD runs out of input it calls GETS, which resets gets_ptr
         defcode("RUN",3,0,run)
         BC_TO_HL
-        push de
-        ld de, string_buffer
-        ld bc, STRING_BUFFER_SIZE
-        ldir
-        ;; Reset get string pointer so that INTERPRET can run the entire string.
-        ld hl, string_buffer
         ld (gets_ptr), hl
-        pop de
         pop bc
         NEXT
 

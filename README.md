@@ -62,6 +62,12 @@ and that you have backed up your calculator!  An easy way to back up
 RAM contents is by creating a group, refer to the manual on how to do
 this.
 
+## Loading Forth Programs onto the calculator
+To convert `hello.fth` into a list of bytes, run.
+```shell
+hexdump -e '".db "16/1 "$%02x, " "\n"' hello.fth | sed 's/$  ,/$00,/g' | sed 's/.$//' | sed 's/$0a/$20/g'
+```
+
 ## Features
 - A 16-bit Forth on a 8-bit chip
 - Contains 171 words (and counting) for everything from memory
