@@ -1418,10 +1418,9 @@ divACbyDE:
 ;; gets_ptr points to the start of the buffer
 
 ;; We also want immediate feedback to the user.
-#define STRING_BUFFER_SIZE 128
+#define STRING_BUFFER_SIZE 255
 
-;; We can have a default program!
-string_buffer: .fill 128,0
+string_buffer: .fill 255,0
 gets_ptr: .dw string_buffer
 
         defcode("GETS",4,0,get_str_forth)
@@ -2279,12 +2278,35 @@ dodoes:
         ld b, (ix + 3)
         NEXT
 
+zero_blk_name_buffer:
+        ld hl, blk_name_buffer
+        xor a
+        ld (hl), a
+        inc hl
+        ld (hl), a
+        inc hl
+        ld (hl), a
+        inc hl
+        ld (hl), a
+        inc hl
+        ld (hl), a
+        inc hl
+        ld (hl), a
+        inc hl
+        ld (hl), a
+        inc hl
+        ld (hl), a
+        inc hl
+        ld (hl), a
+
+        ret
 
 blk_name_buffer: .fill 9, 0
-        ;; ( name_string -- block_start )
+        ;; ( name_string name_len -- block_start )
         defcode("CBLK",4,0,create_block)
+        call zero_blk_name_buffer
         ;; First make a variable name in OP1.
-        BC_TO_HL
+        pop hl
         push de
         ld de, blk_name_buffer
         ;; Indicate that this variable is a program.
@@ -2292,7 +2314,6 @@ blk_name_buffer: .fill 9, 0
         ld (de), a
         inc de
         ;; Copy the 8-character name.
-        ld bc, 8
         ldir
 
         push ix
@@ -2315,13 +2336,16 @@ blk_name_buffer: .fill 9, 0
         inc bc
         NEXT
 
-        ;; ( name_string -- data_start )
+        ;; ( name_string name_len -- data_start )
         ;; Return 0 if not found.
         defcode("FBLK",4,0,find_block)
-        BC_TO_HL
+        call zero_blk_name_buffer
+        pop hl
         push de
-        ld de, blk_name_buffer+1 ;; skip the tag byte.
-        ld bc, 8
+        ld de, blk_name_buffer ;; skip the tag byte.
+        ld a, ProgObj
+        ld (de), a
+        inc de
         ldir
 
         push ix
