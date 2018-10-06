@@ -1,0 +1,29 @@
+\ Random number generator.
+
+: VAR 2 ALLOT WORD CREATE
+      DOCOL_H ' LIT ,
+      , ' EXIT ,
+;
+
+VAR RND
+HERE RND !
+
+: RAND RND @ NUM 31421 * NUM 6927 + DUP RND ! ;
+
+: PP PAGE PLOT ;
+
+: RANDF 0 DO RAND OVER C! 1+ LOOP DROP ;
+
+NUM 767 CONST PLOTSZ
+
+: RANDT PLOTSS PLOTSZ RANDF PP ;
+
+: RANDS
+  BEGIN
+    KEYC DUP 9 <>
+  WHILE
+    RANDT
+  REPEAT
+;
+
+." RAND loaded."

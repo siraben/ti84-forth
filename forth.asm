@@ -1,16 +1,10 @@
+;; -*- mode: text -*-
+
 .NOLIST
 
 ;;; Macros to make life easier.
 
 ;; NEXT, the basis of many Forth CODE words.
-
-#define NEXT ld a, (de)
-#defcont   \ ld l, a
-#defcont   \ inc de
-#defcont   \ ld a, (de)
-#defcont   \ ld h, a
-#defcont   \ inc de
-#defcont   \ jp (hl)
 
 ;; Push BC to the return stack.
 #define PUSH_BC_RS dec ix
@@ -94,7 +88,7 @@ start:
         ;; TI-84 can't store the string "[", so we have to fix it by
         ;; changing the value of rbrac's string.
 
-        ld hl, name_rbrac
+        ld hl, name_lbrac
         inc hl
         inc hl
         inc hl
@@ -114,6 +108,9 @@ start:
         inc hl
         inc hl
         ld (hl), 34
+        
+#define NEXT jp next_sub
+
 
         call setup_data_segment
         ld bc, 9999
@@ -124,6 +121,15 @@ docol:
         pop de
         NEXT
 
+
+next_sub:
+        ld a, (de)
+        ld l, a   
+        inc de    
+        ld a, (de)
+        ld h, a   
+        inc de    
+        jp (hl)
 
 done:
         ;; We reach here at the end of the program.
@@ -557,6 +563,7 @@ strchar_fail:
         HL_TO_BC
         NEXT
 
+        ;; ( n addr -- )
         defcode("+!",2,0,add_store)
         pop hl
         push de
@@ -575,6 +582,7 @@ strchar_fail:
         inc bc
 
         pop de
+        pop bc
         NEXT
 
         defcode("-!",2,0,sub_store)
@@ -654,12 +662,19 @@ wr(".dw ", initial)
 run()
 #endmacro
 
-        ;; Actually a variable, but oh well.
         cell_alloc(var_base,10)
         defcode("BASE",4,0,base)
         push bc
         ld bc, var_base
         NEXT
+
+        ;; Floating point precision.
+        cell_alloc(var_precision,12)
+        defcode("PREC",4,0,precision)
+        push bc
+        ld bc, var_precision
+        NEXT
+
 
         ;; Are we compiling or are we interpreting?
         cell_alloc(var_state,1)
@@ -685,16 +700,16 @@ var_latest:
         NEXT
 
         ;; The "x" gets replaced with "[" at program start, see "start:"
-        defcode("x",1,128,rbrac)
+        defcode("x",1,128,lbrac)
         ld hl, var_state
-        ld (hl), 0
+        ld (hl), 1
         inc hl
         ld (hl), 0
         NEXT
 
-        defcode("]",1,0,lbrac)
+        defcode("]",1,0,rbrac)
         ld hl, var_state
-        ld (hl), 1
+        ld (hl), 0
         inc hl
         ld (hl), 0
         NEXT
@@ -972,13 +987,6 @@ gt_check_neq:
         jp c, fal
         jp tru
 
-        defcode("RAND",4,0,rand)
-        push bc
-        ld a, r
-        ld c, a
-        ld a, r
-        ld b, a
-        NEXT
 
 ;; Place a truth value on the top of the stack.
 tru:
@@ -1160,12 +1168,8 @@ key_table:
 ;;  BC: Multiplicand
 ;; Outputs:
 ;;  DEHL: Product of DE and BC.
+        
 mul16By16:
-
-        defcode("*",1,0,mult)
-        PUSH_DE_RS
-        pop de ;; get the second element from the stack
-
         push bc
         push af
         ld hl, 0
@@ -1207,7 +1211,12 @@ mul16By16:
         inc d
         pop af
         pop bc
+        ret
 
+        defcode("*",1,0,mult)
+        PUSH_DE_RS
+        pop de ;; get the second element from the stack
+        call mul16by16
         HL_TO_BC
         POP_DE_RS
         NEXT
@@ -1375,6 +1384,229 @@ divACbyDE:
         defword("10",2,0,ten)
         .dw lit, 10, exit
 
+        defcode("FRAND",5,0,f_rand)
+        push bc
+        push de
+        b_call _Random
+        b_call _PushRealO1
+        pop de
+        pop bc
+        NEXT
+
+        defcode("F.",2,0,f_dot)
+        push bc
+        push de
+        b_call _PopRealO1
+        ld a, (var_precision)
+        b_call _FormReal
+        pop de
+        ld hl, $848e
+        b_call _PutS
+        pop bc
+        NEXT
+
+        ;; Read a floating point number.
+        ;; Parameter stack :     ( addr len -- )
+        ;; Floating point stack: ( -- f )
+        defcode("FREAD",5,0,f_read)
+        NEXT
+        
+        defcode("F*",2,0,f_mult)
+        push bc
+        push de
+        b_call _PopRealO1
+        b_call _PopRealO2
+        b_call _FPMult
+        b_call _PushOP1
+        pop de
+        pop bc
+        NEXT
+
+        defcode("FSQUARE",7,0,f_square)
+        push bc
+        push de
+        b_call _PopRealO1
+        b_call _FPSquare
+        b_call _PushOP1
+        pop de
+        pop bc
+        NEXT
+
+        defcode("F=",2,0,f_eql)
+        push bc
+        push de
+        b_call _PopRealO1
+        b_call _PopRealO2
+        b_call _CpOP1OP2
+        pop de
+        pop bc
+        jp z, tru
+        jp fal
+        
+
+        defcode("FDUP",4,0,f_dup)
+        push bc
+        push de
+        b_call _PopRealO1
+        b_call _PushOP1
+        b_call _PushOP1        
+        pop de
+        pop bc
+        NEXT
+
+        defcode("FDROP",5,0,f_drop)
+        push bc
+        push de
+        b_call _PopRealO1
+        pop de
+        pop bc
+        NEXT
+
+        defcode("FSWAP",5,0,f_swap)
+        push bc
+        push de
+        b_call _PopRealO1
+        b_call _PopRealO2
+        b_call _PushRealO1
+        b_call _PushRealO2
+        pop de
+        pop bc
+        NEXT
+
+        defcode("F+",2,0,f_add)
+        push bc
+        push de
+        b_call _PopRealO1
+        b_call _PopRealO2
+        b_call _FPAdd
+        b_call _PushOP1
+        pop de
+        pop bc
+        NEXT
+
+        defcode("F/",2,0,f_div)
+        push bc
+        push de
+        b_call _PopRealO2
+        b_call _PopRealO1
+        b_call _FPDiv
+        b_call _PushOP1
+        pop de
+        pop bc
+        NEXT
+
+
+        defcode("FRCI",4,0,f_recip)
+        push bc
+        push de
+        b_call _PopRealO1
+        b_call _FPRecip
+        b_call _PushOP1
+        pop de
+        pop bc
+        NEXT
+
+        defcode("F-",2,0,f_sub)
+        push bc
+        push de
+        b_call _PopRealO2
+        b_call _PopRealO1
+        b_call _FPSub
+        b_call _PushOP1
+        pop de
+        pop bc
+        NEXT
+
+        defcode("FSQRT",5,0,f_sqrt)
+        push bc
+        push de
+        b_call _PopRealO1
+        b_call _SqRoot
+        b_call _PushOP1
+        pop de
+        pop bc
+        NEXT
+
+        ;; ( addr len -- hash_addr )
+        defcode("MD5",3,0,md_five)
+        b_call $808d  ;; md5init
+        pop hl
+        push de
+        push ix
+        b_call $8090 ;; md5update
+        b_call $8090 ;; md5update
+        b_call $8090 ;; md5update
+        b_call $8090 ;; md5update        
+        b_call $8018 ;; md5final
+        ld bc, $8292
+        pop ix
+        pop de
+        NEXT
+
+        ;; Double length number routines.
+        ;; Convention for this Forth:  ( high low -- )
+        ;; ( high low divisor -- remainder quotient_high quotient_low )
+        defcode("D/MOD",5,0,double_divmod)
+        PUSH_DE_RS
+        ld (save_ix), ix
+        BC_TO_DE ;; get the divisor
+        pop ix ;; get the low part
+        pop bc ;; get the high part
+        ld a, b
+        call div32By16
+        ld b, a
+        
+        ;; Push remainder
+        push hl
+        ;; BC contains the high quotient
+        push bc
+
+        ld b, ixh
+        ld c, ixl
+        ;; Now it contains the low quotient
+        
+        ld ix, (save_ix)
+        POP_DE_RS
+        NEXT
+
+;; From KnightOS kernel
+;; div32By16 [Maths]
+;;  Performs `ACIX = ACIX / DE`
+;; Outputs:
+;;  ACIX: ACIX / DE
+;;  HL: Remainder
+;;  B: 0
+div32By16:
+    ld hl, 0
+    ld b, 32
+dd_loop:
+    add ix, ix
+    rl c
+    rla
+    adc hl, hl
+    jr  c, dd_overflow
+    sbc hl, de
+    jr  nc, dd_setBit
+    add hl, de
+    djnz dd_loop
+    ret
+dd_overflow:
+    or a
+    sbc hl, de
+dd_setBit:
+    inc ixl
+    djnz dd_loop
+    ret
+
+        ;; ( n1 n2 -- high_mult low_mult )
+        defcode("D*",2,0,double_mult)
+        PUSH_DE_RS
+        pop de ;; get the second element from the stack
+        call mul16by16
+        HL_TO_BC
+        push de ;; push high part onto stack.
+        POP_DE_RS
+        NEXT
 
         defcode("SPACE",5,0,space)
         ld a, ' '
@@ -1714,6 +1946,10 @@ actual_word_loop:
         jp z, word_done
         cp ' '
         jp z, word_done
+        cp '\n'
+        jp z, word_done
+        cp '\t'
+        jp z, word_done
 
         ;; A is another non-space, printable character.
         inc c
@@ -1729,6 +1965,7 @@ word_done:
         push hl
         NEXT
 
+        
 
         ;; Is this word immediate? (assuming it's a pointer returned by FIND)
         defcode("?IMMED",6,0, qimmed)
@@ -1900,15 +2137,13 @@ strcmp_exit:
         ;; Save the current state into the scratch buffer.
         ;; Assuming the current state is the data after the buffer
         defword("SIMG",4,0,save_image)
-        .dw here, fetch, lit, save_here, store
-        .dw latest, fetch, lit, save_latest, store
-        .dw hz, lit, scratch, used, cmove, writeback, exit
+        .dw writeback, exit
 
         ;; Load the scratch buffer back into the current state.
         defword("LIMG",4,0,load_image)
         .dw lit, save_here, fetch, here, store
         .dw lit, save_latest, fetch, latest, store
-        .dw lit, scratch, hz, lit, save_here, fetch, hz, sub, cmove, exit
+        .dw exit
 
         defword(">DFA",4,0,to_dfa)
         .dw to_cfa, four_plus, one_minus, exit
@@ -2159,7 +2394,7 @@ dodoes:
         .dw dup, here, fetch, swap, sub, swap, store, exit
 
         defword("CHAR",4,0,char)
-        .dw word, two_drop, lit, word_buffer, fetch_byte, exit
+        .dw word, drop, fetch_byte, exit
 
         defword("(COMP)",6,128,compile)
         .dw word, find, to_cfa, comma, exit
@@ -2178,8 +2413,8 @@ dodoes:
         .dw latest, fetch, to_cfa, comma, exit
 
         defword("VAR",3,0,variable)
-        .dw lit, 1, cells, allot, word, create, docol_header, lit, lit, comma, comma
-        .dw lit, exit, comma, exit
+        .dw lit, 2,  allot, word, create, docol_header, tick, lit, comma, comma
+        .dw tick, exit, comma, exit
 
         defword("DO",2,128, do)
         .dw here, fetch, tick, to_r, comma, tick, to_r, comma, exit
@@ -2241,13 +2476,22 @@ dodoes:
         defword("U.",2,0,u_dot)
         .dw u_dot_, space, exit
 
-
         defword(".",1,0,print_tos)
         .dw u_dot, exit
 
+        defword("DEPTH",5,0,depth)
+        .dw sz, fetch, sp_fetch, sub, two_minus, right_shift, exit
+
         defword(".S",2,0,print_stack)
+        .dw lit, '<', emit, depth, u_dot_, lit, '>', emit, space
         .dw sp_fetch, dup, sz, fetch, less_than, zbranch, 16, dup, fetch, u_dot
         .dw two, add, branch, 65512, drop, exit
+
+        defword("HEX",3,0,hex)
+        .dw lit, 16, base, store, exit
+
+        defword("DEC",3,0,decimal)
+        .dw lit, 10, base, store, exit
 
         ;; This word was bootstrapped from an interpreted definition.
         defword("SEE",3,0,see)
@@ -2264,8 +2508,8 @@ dodoes:
         .dw id_dot, space, drop, two_plus, branch, 65332, lit, 59, emit, cr, two_drop, exit
 
         defword("WORDS",5,0,words)
-        .dw latest, fetch, key, drop, qdup, zbranch, 24, dup, qhidden, not, zbranch, 8
-        .dw dup, id_dot, space, fetch, branch, 65506, cr, exit
+        .dw latest, fetch, key, lit, 5, neql, zbranch, 32, dup, zbranch, 24, dup, qhidden, not, zbranch, 8
+        .dw dup, id_dot, space, fetch, branch, -38, cr, drop, exit
 
         defword("CASE",4,128,case)
         .dw zero, exit
@@ -2379,6 +2623,17 @@ fblk_fail:
         ld (gets_ptr), hl
         pop bc
         NEXT
+
+
+load_not_found_msg1: .db "File ",0
+load_not_found_msg2: .db " not found. ",0
+load_long_name_msg: .db "Name must be 8 characters or shorter. ", 0
+        defword("LOAD",4,0,load_file)
+        .dw word, dup, lit, 8, greater_than, zbranch, 12
+        .dw lit, load_long_name_msg, putstrln, two_drop, exit
+        .dw find_block, dup, zbranch, 8, run, branch, 22
+        .dw lit, load_not_found_msg1, putstr, lit, word_buffer, putstr
+        .dw lit, load_not_found_msg2, putstrln, drop, exit
 
 
 ;; Taken from http://z80-heaven.wikidot.com/sound
@@ -2696,6 +2951,7 @@ undef_msg: .db " ?",0
 return_stack_top  .EQU    AppBackUpScreen+764
 prog_exit: .dw 0
 save_sp:   .dw 0
+save_ix:   .dw 0
 
 ;; We should be able to define an interpreter in Forth that supports compiled code if we try.
 ;; Coming later:  A interpreter defined in Forth and meta-compiled.
@@ -2708,11 +2964,10 @@ prog:
         .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -66
         .dw done
 
-here_start:     .fill 256, 0
-
 data_start:
+here_start:
 scratch:
-                .fill 256, 0
+                .fill 512, 0
 save_latest: .dw star
 save_here:   .dw scratch
 data_end:

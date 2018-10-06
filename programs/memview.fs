@@ -1,5 +1,4 @@
 \ View memory locations interactively.
-
 \ Number of bytes that the plot window can see.
 
 NUM 767 CONST PLOTSZ
@@ -29,3 +28,4 @@ NUM 36 CONST STEPL
 
 \ View memory starting from the string buffer:
 \ BUF MEMVIEW
+." Memview loaded."
