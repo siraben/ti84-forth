@@ -108,7 +108,7 @@ start:
         inc hl
         inc hl
         ld (hl), 34
-        
+
 #define NEXT jp next_sub
 
 
@@ -122,14 +122,14 @@ docol:
         NEXT
 
 
-next_sub:
-        ld a, (de)
-        ld l, a   
-        inc de    
-        ld a, (de)
-        ld h, a   
-        inc de    
-        jp (hl)
+next_sub:               ;; Cycle count (total 47)
+        ld a, (de)      ;; 7
+        ld l, a         ;; 4
+        inc de          ;; 6
+        ld a, (de)      ;; 7
+        ld h, a         ;; 4
+        inc de          ;; 6
+        jp (hl)         ;; 13
 
 done:
         ;; We reach here at the end of the program.
@@ -310,6 +310,7 @@ bit_cache: .dw 0
         add hl, hl
         HL_TO_BC
         NEXT
+
 
         defcode(">>",2,0, right_shift)
         push de
@@ -535,14 +536,16 @@ bit_cache: .dw 0
 strchr_loop:
         ld a, (hl)
         or a
-        jr z, strchar_fail
+        jr z, strchr_fail
         cp b
-        jp z, tru
+        jp z, strchr_succ
         inc hl
         jr strchr_loop
-strchar_fail:
+strchr_fail:
         jp fal
-
+strchr_succ:
+        HL_TO_BC
+        NEXT
 
         defcode("!", 1,0,store)
         pop hl
@@ -1168,7 +1171,7 @@ key_table:
 ;;  BC: Multiplicand
 ;; Outputs:
 ;;  DEHL: Product of DE and BC.
-        
+
 mul16By16:
         push bc
         push af
@@ -1410,7 +1413,7 @@ divACbyDE:
         ;; Floating point stack: ( -- f )
         defcode("FREAD",5,0,f_read)
         NEXT
-        
+
         defcode("F*",2,0,f_mult)
         push bc
         push de
@@ -1442,14 +1445,14 @@ divACbyDE:
         pop bc
         jp z, tru
         jp fal
-        
+
 
         defcode("FDUP",4,0,f_dup)
         push bc
         push de
         b_call _PopRealO1
         b_call _PushOP1
-        b_call _PushOP1        
+        b_call _PushOP1
         pop de
         pop bc
         NEXT
@@ -1536,7 +1539,7 @@ divACbyDE:
         b_call $8090 ;; md5update
         b_call $8090 ;; md5update
         b_call $8090 ;; md5update
-        b_call $8090 ;; md5update        
+        b_call $8090 ;; md5update
         b_call $8018 ;; md5final
         ld bc, $8292
         pop ix
@@ -1555,7 +1558,7 @@ divACbyDE:
         ld a, b
         call div32By16
         ld b, a
-        
+
         ;; Push remainder
         push hl
         ;; BC contains the high quotient
@@ -1564,7 +1567,7 @@ divACbyDE:
         ld b, ixh
         ld c, ixl
         ;; Now it contains the low quotient
-        
+
         ld ix, (save_ix)
         POP_DE_RS
         NEXT
@@ -1599,7 +1602,7 @@ dd_setBit:
     ret
 
         ;; ( n1 n2 -- high_mult low_mult )
-        defcode("D*",2,0,double_mult)
+        defcode("*D",2,0,double_mult)
         PUSH_DE_RS
         pop de ;; get the second element from the stack
         call mul16by16
@@ -1607,6 +1610,68 @@ dd_setBit:
         push de ;; push high part onto stack.
         POP_DE_RS
         NEXT
+
+        defcode("D+",2,0,double_add)
+        BC_TO_HL
+        PUSH_DE_RS
+        pop bc
+        PUSH_BC_RS
+        pop de
+        add hl, de
+        HL_TO_BC
+
+        POP_DE_RS
+        pop hl
+        adc hl,de
+
+        push hl
+        POP_DE_RS
+        NEXT
+
+;; mul32By8 [Maths]
+;;  Performs an unsigned multiplication of DEHL and A.
+;; Outputs:
+;;  DEHL: product of DEHL and A
+        ;; ( 32bit_high 32bit_low 8bit -- 32*8high 32*8 low )
+        defcode("DS", 2, 0, double_scale)
+mul32By8:
+    PUSH_DE_RS
+    ld a, c
+    pop hl
+    pop de
+    push bc \ push ix
+        ld ixl, 8
+        push de
+            push hl
+                ld hl, 0
+                ld d, h
+                ld e, l
+mul32by8_loop:
+                add hl, hl
+                rl e
+                rl d
+                rla
+                jr nc, mul32by8_noAdd
+            pop bc
+            add hl, bc
+            ex (sp), hl
+            push hl
+                adc hl, de
+            pop de
+            ex de, hl
+            ex (sp), hl
+            push bc
+mul32by8_noAdd:
+                dec ixl
+                jr nz, mul32by8_loop
+            pop bc
+        pop bc
+    pop ix \ pop bc
+    push de
+    HL_TO_BC
+    POP_DE_RS
+    NEXT
+
 
         defcode("SPACE",5,0,space)
         ld a, ' '
@@ -1911,7 +1976,7 @@ skip_space:
         cp '\n' ;; if we're reading from a converted text file.
         jp z, skip_space
         cp '\t'
-        jp z, skip_space        
+        jp z, skip_space
         cp '\\'
         jp z, skip_comment
         jp actual_word
@@ -1921,7 +1986,7 @@ empty_word:
 skip_comment:
         ;; We could be reading from a text file.
         call get_char_asm
-        
+
         ;; Ran out of input.
         or a
         jp z, empty_word
@@ -1932,7 +1997,7 @@ skip_comment:
 
         ;; Some other character.
         jp skip_comment
-        
+
 actual_word:
         ld c, 1
         ;; A contains the character.
@@ -1965,7 +2030,7 @@ word_done:
         push hl
         NEXT
 
-        
+
 
         ;; Is this word immediate? (assuming it's a pointer returned by FIND)
         defcode("?IMMED",6,0, qimmed)
@@ -2081,6 +2146,7 @@ find_fail:
         pop de
         jp fal
 
+;; From KnightOS kernel.
 ;; strcmp [Strings]
 ;;  Determines if two strings are equal, and checks alphabetical sort order.
 ;; Inputs:
@@ -2551,6 +2617,46 @@ zero_blk_name_buffer:
         ld (hl), a
 
         ret
+
+scr_name: .db "SCRATCH",0
+        ;; ( -- )
+        defcode("CSCR",4,0,create_scratch)
+        push bc
+        ld bc, scr_name
+        push bc
+        ld bc, 7
+        call zero_blk_name_buffer
+        ;; First make a variable name in OP1.
+        pop hl
+        push de
+        ld de, blk_name_buffer
+        ;; Indicate that this variable is a program.
+        ld a, ProgObj
+        ld (de), a
+        inc de
+        ;; Copy the 8-character name.
+        ldir
+
+        push ix
+        ld hl, blk_name_buffer
+        b_call _Mov9ToOP1
+        ;; Allocate 255 bytes (default block size, change later if needed)
+        ld hl, 1024
+        b_call _CreateProg
+        pop ix
+        ;; DE contains the start of the memory location.
+        ld b, d
+        ld c, e
+        ex de, hl
+        pop de
+
+        ld (hl), 0
+        inc hl
+        ld (hl), 4
+        inc bc
+        inc bc
+        NEXT
+
 
 blk_name_buffer: .fill 9, 0
         ;; ( name_string name_len -- block_start )
