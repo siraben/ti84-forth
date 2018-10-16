@@ -1,5 +1,5 @@
-\ Random number generator.
-
+\ Testing double length routines
+\ requires rand.fs and ddot.fs
 VAR SEED
 7 SEED !
 
@@ -20,20 +20,13 @@ VAR SEED
 
 HERE SETSEED
 
-: PP PAGE PLOT ;
-
-: RANDF 0 DO RAND OVER ! 2+ LOOP DROP ;
-
-NUM 383 CONST PLOTSZ
-
-: RANDT PLOTSS PLOTSZ RANDF PP ;
-
-: RANDS
+: D+_TEST
   BEGIN
-    KEY 5 <>
+    KEY 5 <> PAGE
   WHILE
-    RANDT
+    RAND RAND 2DUP D. CR
+    RAND RAND 2DUP D. CR
+    ." ----------" CR
+    D+ D. CR
   REPEAT
 ;
-
-." RAND loaded."

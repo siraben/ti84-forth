@@ -1,3 +1,5 @@
+;; -*- mode: text -*-
+
 .NOLIST
 
 ;;; Macros to make life easier.
@@ -128,6 +130,7 @@ next_sub:               ;; Cycle count (total 47)
         ld h, a         ;; 4
         inc de          ;; 6
         jp (hl)         ;; 13
+
 
 done:
         ;; We reach here at the end of the program.
@@ -401,6 +404,8 @@ bit_cache: .dw 0
         POP_DE_RS
         NEXT
 
+;; TODO: 2NIP, 2TUCK, 2ROT, 2OVER
+
         defcode("1+", 2, 0, one_plus)
         inc bc
         NEXT
@@ -444,7 +449,35 @@ bit_cache: .dw 0
         POP_BC_RS
         NEXT
 
-        defcode("RDROP",5,0,r_drop)
+        defcode("R@", 2, 0, r_fetch)
+        push bc
+        POP_HL_RS
+        PUSH_HL_RS
+        ld c, (hl)
+        inc hl
+        ld b, (hl)
+        NEXT
+
+        defcode("2>R", 3, 0, two_to_r)
+        pop hl
+        PUSH_HL_RS
+        PUSH_BC_RS
+        pop bc
+        NEXT
+
+        defcode("2R>", 3, 0, two_r_from)
+        push bc
+        POP_BC_RS
+        POP_HL_RS
+        push hl
+        NEXT
+
+        defcode("RDROP",5,0,rdrop)
+        POP_HL_RS
+        NEXT
+
+        defcode("2RDROP",6,0,two_rdrop)
+        POP_HL_RS
         POP_HL_RS
         NEXT
 
@@ -743,6 +776,10 @@ var_latest:
         defcode("BUFSZ", 5, 0, __string_buffer_size)
         PSP_PUSH(STRING_BUFFER_SIZE)
         NEXT
+        
+        defcode("WBUFP", 5, 0, __word_buffer_ptr)
+        PSP_PUSH(word_buffer_ptr)
+        NEXT        
 
         defcode("WBUF", 4, 0, __word_buffer)
         PSP_PUSH(word_buffer)
@@ -1600,7 +1637,7 @@ dd_setBit:
     ret
 
         ;; ( n1 n2 -- high_mult low_mult )
-        defcode("*D",2,0,double_mult)
+        defcode("UM*",3,0,um_star)
         PUSH_DE_RS
         pop de ;; get the second element from the stack
         call mul16by16
@@ -1623,6 +1660,32 @@ dd_setBit:
         adc hl,de
 
         push hl
+        POP_DE_RS
+        NEXT
+
+
+;; add16To32 [Maths]
+;;  Performs `ACIX = ACIX + DE`
+        defcode("M+",2,0,m_plus)
+        ld (save_ix), ix
+        PUSH_DE_RS
+        BC_TO_DE
+        pop bc
+        ld a, b
+add16to32:
+        add ix, de
+        jp nc, add16to32_done
+        or a
+        inc c
+        jp z, add16to32_done
+        add a, 1
+add16to32_done:
+        ld b, a
+        push bc
+        ld (bit_cache), ix
+        ld hl, (bit_cache)
+        HL_TO_BC
+        ld ix,(save_ix)        
         POP_DE_RS
         NEXT
 
@@ -2593,6 +2656,12 @@ dodoes:
         ld b, (ix + 3)
         NEXT
 
+        defcode("J",1,0,curr_loop_index2)
+        push bc
+        ld c, (ix + 6)
+        ld b, (ix + 7)
+        NEXT
+
 zero_blk_name_buffer:
         ld hl, blk_name_buffer
         xor a
@@ -2619,11 +2688,12 @@ zero_blk_name_buffer:
 scr_name: .db "SCRATCH",0
         ;; ( -- )
         defcode("CSCR",4,0,create_scratch)
+        call zero_blk_name_buffer        
         push bc
         ld bc, scr_name
         push bc
         ld bc, 7
-        call zero_blk_name_buffer
+
         ;; First make a variable name in OP1.
         pop hl
         push de
@@ -2778,145 +2848,6 @@ FreqOutDone:
         out (0),a       ;reset the port, else the user will be really annoyed.
         ret
 
-        defcode("IN0",3,0,in_zero)
-        push bc
-        push de
-        ld a, c
-        call read_z
-        pop de
-        pop bc
-        NEXT
-
-        defcode("W0",2,0,write_zero)
-        push bc
-        push de
-        call write_z
-        pop de
-        ld b,0
-        ld c,a
-        NEXT
-
-;; Read data from the link port.
-read_z:
-        ld b,0			; reset variables (b = byte,
-        ld d,1			; d = bitmask, e = clockstate)
-        in a,(0)		; Get byte and check tip
-        bit 2,a
-        call z,State_zero
-        call nz,State_one
-Read_go:
-        in a,(0)		; Is clockstate changed?
-        bit 2,a
-        ld a,e
-        jr z,Clock_is_low
-        or a
-        jr z,Clockchanged	; Yes (High)
-        jr Read_go		; No
-Clock_is_low:
-        or a
-        jr z,Read_go		; No  (Low)
-Clockchanged:			; Yes
-        in a,(0)		; Get value from port
-        bit 2,a
-        call z,State_zero	; Store new clockstate
-        call nz,State_one
-        bit 3,a
-        call nz,Or_byte	; Or them, depending on state of ring
-        rlc d
-        ld a,d
-        cp 1
-        jr z,Stop_read		; Yes: quit
-        jr Read_go		; No, next bit
-Or_byte:
-        ld a,b
-        or d
-        ld b,a
-        ret
-State_zero:
-        ld e,0
-        ret
-State_one:
-        ld e,1
-        ret
-Stop_read:
-        ld a,b
-        ret
-
-Write_z:
-        ld c,a			; Store byte
-        ld d,1			; Create bitmask
-        ld e,$D1		; Init linkport value
-Write_go:
-        ld a,c			; Retrieve byte
-        and d			; and with bitmask
-        or a
-        call z,Set_ring_low
-        call nz,Set_ring_high	; Set data line (ring) according to bit
-        rlc d			; rotate bitmask
-        ld a,e			; retrieve linkport value
-        out (0),a		; Set linkport
-        xor 1			; invert clockstate
-        ld e,a			; store linkport value
-        ld b,6
-Delay_loop:
-        djnz Delay_loop	; Short delay
-        ld a,d			; bitmask back to original?
-        cp 1
-        jr nz,Write_go		; No: Next bit
-        ret			; Yes: Done
-Set_ring_high:
-        res 1,e
-        ret
-Set_ring_low:
-        set 1,e
-        ret
-
-
-;; FrequencyLUT:
-;;  .dw 2100,1990,1870,1770,1670,1580,1490,1400,1320,1250,1180,1110
-;;  .dw 1050, 996, 940, 887, 837, 790, 746, 704, 665, 627, 592, 559
-;;  .dw  527, 498, 470, 444, 419, 395, 373, 352, 332, 314, 296, 279
-;;  .dw  264, 249, 235, 222, 209, 198, 186, 176, 166, 157, 148, 140
-;;  .dw  132, 124, 117, 111, 105,  99,  93,  88,  83,  78,  74,  70
-;;  .dw   66,  62,  59,  55,  52,  49,  47,  44,  42,  39,  37,  35
-;;  .dw   33,  31,  29,  28,  26,  25,  23,  22,  21,  20,  19,  18
-;;  .dw   17,  16,  15,  14,  13,  12,  11,  10,  10,   9,   9,   8
-;;  .dw    8,   7,   7,   7,   7,   6,   6,   5,   5,   5,   5,   4
-
-;; ;; Play note A for duration D
-;; ;; Taken from http://z80-heaven.wikidot.com/sound
-;; ;; Work in progress.  Somewhat buggy.
-
-;;         ;; (  note duration -- )
-;;         defcode("PLAY",4,0,play_note)
-;;         PUSH_DE_RS
-;;         ld d, c
-;;         pop bc
-;;         ld a, c
-;; PlayNote:
-;;         ld hl,FrequencyLUT
-;;         add a,l
-;;         ld l,a
-;;         jr nc, PlayNote_cont
-;;         inc h
-;;         ld c,(hl)
-;;         inc hl
-;; PlayNote_cont:
-;;         ld b,(hl)
-;; ;now BC is the frequency for the note
-;; NoteLoop:
-;;         push bc
-;;         ld hl,4096
-;;         call p_FreqOut
-;;         pop bc
-;;         dec bc
-;;         ld a,b
-;;         or c
-;;         jr nz,NoteLoop
-;;         POP_DE_RS
-;;         pop bc
-;;         NEXT
-
 
         defcode("PLOT",4,0,plot)
         push bc
@@ -3063,15 +2994,18 @@ prog:
 ;;      .dw get_str_forth
         .dw word, find, dup, zbranch, 48
         .dw lit, var_state, fetch, zbranch, 18, to_cfa, execute, space
-        .dw lit, ok_msg, putstrln, branch, -34, dup, qimmed, zbranch, 6
+        .dw lit,    ok_msg, putstrln, branch, -34
+        
+        .dw dup, qimmed, zbranch, 6
         .dw branch, -26
+        
         .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -66
         .dw done
 
 data_start:
 here_start:
 scratch:
-                .fill 512, 0
+                .fill 400, 0
 save_latest: .dw star
 save_here:   .dw scratch
 data_end:
