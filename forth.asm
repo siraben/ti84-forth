@@ -1,5 +1,3 @@
-;; -*- mode: text -*-
-
 .NOLIST
 
 ;;; Macros to make life easier.
