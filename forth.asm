@@ -5,35 +5,41 @@
 ;; NEXT, the basis of many Forth CODE words.
 
 ;; Push BC to the return stack.
+;; 4 + 19 + 4 + 19 = 46
 #define PUSH_BC_RS dec ix
 #defcont         \ ld (ix + 0), b
 #defcont         \ dec ix
 #defcont         \ ld (ix + 0), c
 
 ;; Pop the top entry of the return stack to BC.
+;; 19 + 10 + 19 + 10 = 58
 #define POP_BC_RS  ld c, (ix + 0)
 #defcont         \ inc ix
 #defcont         \ ld b, (ix + 0)
 #defcont         \ inc ix
 
 ;; Push HL to the return stack.
+;; 4 + 19 + 4 + 19 = 46
 #define PUSH_HL_RS dec ix
 #defcont         \ ld (ix + 0), h
 #defcont         \ dec ix
 #defcont         \ ld (ix + 0), l
 
 #define POP_HL_RS  ld l, (ix + 0)
+;; 19 + 10 + 19 + 10 = 58
 #defcont         \ inc ix
 #defcont         \ ld h, (ix + 0)
 #defcont         \ inc ix
 
 ;; Push DE to the return stack.
+;; 4 + 19 + 4 + 19 = 46
 #define PUSH_DE_RS dec ix
 #defcont         \ ld (ix + 0), d
 #defcont         \ dec ix
 #defcont         \ ld (ix + 0), e
 
 ;; Pop the top entry of the return stack to DE.
+;; 19 + 10 + 19 + 10 = 58
 #define POP_DE_RS  ld e, (ix + 0)
 #defcont         \ inc ix
 #defcont         \ ld d, (ix + 0)
@@ -45,6 +51,7 @@
 #define BC_TO_HL ld h, b
 #defcont       \ ld l, c
 
+;; 4 + 4 = 8
 #define HL_TO_BC ld b, h
 #defcont       \ ld c, l
 
@@ -331,7 +338,6 @@ bit_cache: .dw 0
         ld a, b
         cpl
         ld b, a
-
         NEXT
 
         defcode("DROP",4,0,drop)
@@ -352,6 +358,7 @@ bit_cache: .dw 0
         NEXT
 
         defcode("ROT",3,0,rot)
+        ;; 46 + 10 + 10 + 14 + 14 + 4 + 8 + 58 = 164
         PUSH_DE_RS
         pop hl
         pop de
@@ -438,6 +445,7 @@ bit_cache: .dw 0
         NEXT
 
         defcode(">R", 2, 0, to_r)
+        ;; 46 + 14 = 60
         PUSH_BC_RS
         pop bc
         NEXT
@@ -707,7 +715,6 @@ run()
         ld bc, var_precision
         NEXT
 
-
         ;; Are we compiling or are we interpreting?
         cell_alloc(var_state,1)
         defcode("STATE",5,0,state)
@@ -745,7 +752,6 @@ var_latest:
         inc hl
         ld (hl), 0
         NEXT
-
 
         cell_alloc(var_stack_empty,1)
         defcode("?SE", 3, 0, stack_emptyq)
@@ -872,11 +878,7 @@ _c_comma
 
         ret
 
-
-        ;; Actually, we do have a stack pointer, but it's not probably
-        ;; what is normally expected of Forths.
         defcode("SP@", 3, 0, sp_fetch)
-
         ;; Since we can't do ld hl, sp
         push bc
         ld (var_sp), sp
@@ -1162,40 +1164,38 @@ akey_return_space:
         NEXT
 
 key_table:
-.db "     ",$00,"  " ;; 0-7
-.db "        " ;; 8-15
-.db "        " ;; 16-23
-.db "        " ;; 24-31
-.db "        " ;; 32-39
-.db "       !" ;; 40-47
-.db "   =  ' " ;; 48-55
-.db "_@>     " ;; 56-63
-.db " <      " ;; 64-71
-.db "        " ;; 72-79
-.db "        " ;; 80-87
-.db "        " ;; 88-95
-.db "        " ;; 96-103
-.db "        " ;; 104-111
-.db "        " ;; 112-119
-.db "        " ;; 120-127
-.db "+-*/^()",$C1 ;; 128-135
-.db "]  , .01" ;; 136-143
-.db "23456789" ;; 144-151
-.db "  ABCDEF";; 152-159
-.db "GHIJKLMN";; 160-167
-.db "OPQRSTUV" ;; 168-175
-.db "WXYZ    " ;; 176-183
-.db "        " ;; 184-191
-.db "      : " ;; 192-199
-.db "  ?\"    " ;; 200-207
-.db "        " ;; 208-215
-.db "        " ;; 216-223
-.db "        " ;; 224-231
-.db "    {};\\" ;; 232-239
-.db "        " ;; 240-247
-.db "        " ;; 248-255
-
-
+.db "     ",$00,"  " ;; 0   - 7
+.db "        "       ;; 8   - 15
+.db "        "       ;; 16  - 23
+.db "        "       ;; 24  - 31
+.db "        "       ;; 32  - 39
+.db "       !"       ;; 40  - 47
+.db "   =  ' "       ;; 48  - 55
+.db "_@>     "       ;; 56  - 63
+.db " <      "       ;; 64  - 71
+.db "        "       ;; 72  - 79
+.db "        "       ;; 80  - 87
+.db "        "       ;; 88  - 95
+.db "        "       ;; 96  - 103
+.db "        "       ;; 104 - 111
+.db "        "       ;; 112 - 119
+.db "        "       ;; 120 - 127
+.db "+-*/^()",$C1    ;; 128 - 135
+.db "]  , .01"       ;; 136 - 143
+.db "23456789"       ;; 144 - 151
+.db "  ABCDEF"       ;; 152 - 159
+.db "GHIJKLMN"       ;; 160 - 167
+.db "OPQRSTUV"       ;; 168 - 175
+.db "WXYZ    "       ;; 176 - 183
+.db "        "       ;; 184 - 191
+.db "      : "       ;; 192 - 199
+.db "  ?\"    "      ;; 200 - 207
+.db "        "       ;; 208 - 215
+.db "        "       ;; 216 - 223
+.db "        "       ;; 224 - 231
+.db "    {};\\"      ;; 232 - 239
+.db "        "       ;; 240 - 247
+.db "        "       ;; 248 - 255
 
 ;; mul16By16 [Maths]
 ;;  Performs an unsigned multiplication of DE and BC.
@@ -1383,6 +1383,43 @@ divACbyDE:
         ;; Remainder, then quotient.
         push hl
         POP_DE_RS
+        NEXT
+
+        ;; ( n^2 -- n )
+        defcode("SQRT",4,0,sqrt)
+        ;; Input: LA
+        ;; Output: D
+        push de
+        ld a, c
+        ld l, b
+sqrt_la:
+	ld de, 0040h	; 40h appends "01" to D
+	ld h, d
+	
+	ld b, 7
+	
+	; need to clear the carry beforehand
+	or a
+
+sqrt_loop:
+	sbc hl, de
+	jr nc, $+3
+	add hl, de
+	ccf
+	rl d
+	rla
+	adc hl, hl
+	rla
+	adc hl, hl
+	
+	djnz sqrt_loop
+	
+	sbc hl, de		; optimised last iteration
+	ccf
+	rl d
+        ld b, 0
+        ld c, d
+        pop de
         NEXT
 
         ;; Ad-hoc solution to read a number.
@@ -1613,26 +1650,26 @@ divACbyDE:
 ;;  HL: Remainder
 ;;  B: 0
 div32By16:
-    ld hl, 0
-    ld b, 32
+        ld hl, 0
+        ld b, 32
 dd_loop:
-    add ix, ix
-    rl c
-    rla
-    adc hl, hl
-    jr  c, dd_overflow
-    sbc hl, de
-    jr  nc, dd_setBit
-    add hl, de
-    djnz dd_loop
-    ret
+        add ix, ix
+        rl c
+        rla
+        adc hl, hl
+        jr  c, dd_overflow
+        sbc hl, de
+        jr  nc, dd_setBit
+        add hl, de
+        djnz dd_loop
+        ret
 dd_overflow:
-    or a
-    sbc hl, de
+        or a
+        sbc hl, de
 dd_setBit:
-    inc ixl
-    djnz dd_loop
-    ret
+        inc ixl
+        djnz dd_loop
+        ret
 
         ;; ( n1 n2 -- high_mult low_mult )
         defcode("UM*",3,0,um_star)
@@ -1694,43 +1731,42 @@ add16to32_done:
         ;; ( 32bit_high 32bit_low 8bit -- 32*8high 32*8 low )
         defcode("DS", 2, 0, double_scale)
 mul32By8:
-    PUSH_DE_RS
-    ld a, c
-    pop hl
-    pop de
-    push bc \ push ix
+        PUSH_DE_RS
+        ld a, c
+        pop hl
+        pop de
+        push bc \ push ix
         ld ixl, 8
         push de
-            push hl
-                ld hl, 0
-                ld d, h
-                ld e, l
+        push hl
+        ld hl, 0
+        ld d, h
+        ld e, l
 mul32by8_loop:
-                add hl, hl
-                rl e
-                rl d
-                rla
-                jr nc, mul32by8_noAdd
-            pop bc
-            add hl, bc
-            ex (sp), hl
-            push hl
-                adc hl, de
-            pop de
-            ex de, hl
-            ex (sp), hl
-            push bc
-mul32by8_noAdd:
-                dec ixl
-                jr nz, mul32by8_loop
-            pop bc
+        add hl, hl
+        rl e
+        rl d
+        rla
+        jr nc, mul32by8_noAdd
         pop bc
-    pop ix \ pop bc
-    push de
-    HL_TO_BC
-    POP_DE_RS
-    NEXT
-
+        add hl, bc
+        ex (sp), hl
+        push hl
+        adc hl, de
+        pop de
+        ex de, hl
+        ex (sp), hl
+        push bc
+mul32by8_noAdd:
+        dec ixl
+        jr nz, mul32by8_loop
+        pop bc
+        pop bc
+        pop ix \ pop bc
+        push de
+        HL_TO_BC
+        POP_DE_RS
+        NEXT
 
         defcode("SPACE",5,0,space)
         ld a, ' '
@@ -2001,8 +2037,8 @@ unget_char_done:
 ;; gets_ptr.
 
 ;; ( -- base_addr len )
-#define BUFSIZE  64
-word_buffer:     .fill 64, 0
+#define BUFSIZE  32
+word_buffer:     .fill 32, 0
 word_buffer_ptr: .dw 0
         defcode("WORD",4,0,word)
         ;; Save IP and TOS.
@@ -2546,12 +2582,12 @@ dodoes:
 
         defword("LOOP",4,128, loop)
         .dw tick, from_r, comma, tick, from_r, comma, tick, one_plus, comma, tick, two_dup, comma
-        .dw tick, eql, comma, tick, zbranch, comma, here, fetch,  sub, comma, tick, two_drop, comma, exit
+        .dw tick, eql, comma, tick, zbranch, comma, here, fetch, sub, comma, tick, two_drop, comma, exit
 
 
         defword("+LOOP",5,128, add_loop)
         .dw tick, from_r, comma, tick, from_r, comma, tick, rot, comma, tick, add, comma, tick, two_dup, comma
-        .dw tick, eql, comma, tick, zbranch, comma, here, fetch,  sub, comma, tick, two_drop, comma, exit
+        .dw tick, eql, comma, tick, zbranch, comma, here, fetch, sub, comma, tick, two_drop, comma, exit
 
         defword("FORGET",6,0,forget)
         .dw word, find, dup, fetch, latest, store, here, store, exit
@@ -2981,7 +3017,6 @@ setup_data_segment:
 
 ok_msg: .db "ok",0
 undef_msg: .db " ?",0
-return_stack_top  .EQU    AppBackUpScreen+764
 prog_exit: .dw 0
 save_sp:   .dw 0
 save_ix:   .dw 0
@@ -3000,10 +3035,12 @@ prog:
         .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -66
         .dw done
 
+here_start .equ AppBackupScreen
+return_stack_top .equ data_end        
 data_start:
-here_start:
+
+save_latest: .dw star
+save_here:   .dw scratch        
 scratch:
                 .fill 400, 0
-save_latest: .dw star
-save_here:   .dw scratch
 data_end:
