@@ -92,16 +92,17 @@ information on how to type the following characters: `[]{}"?:`.
 | `>`       | `2nd STAT`    |
 | `\`       | `2nd ÷`       |
 | `_`       | `2nd VARS`    |
-|           |               |
 
 ## Exiting the Interpreter
 Type `BYE` and hit `ENTER`.
 
 ## Loading Forth Programs onto the calculator
-To convert `hello.fth` into a list of bytes, run.
+To convert `hello.fth` into a list of bytes, run:
 ```shell
 hexdump -e '".db "16/1 "$%02x, " "\n"' hello.fth | sed 's/$  ,/$00,/g' | sed 's/.$//' | sed 's/$0a/$20/g'
 ```
+Copy and paste this list of bytes into an .asm file, assembly it and send
+it over to the calculator.
 
 ## Features
 - A 16-bit Forth on a 8-bit chip

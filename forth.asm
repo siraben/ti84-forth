@@ -2,7 +2,6 @@
 
 ;;; Macros to make life easier.
 
-;; NEXT, the basis of many Forth CODE words.
 
 ;; Push BC to the return stack.
 ;; 4 + 19 + 4 + 19 = 46
@@ -114,6 +113,8 @@ start:
         inc hl
         ld (hl), 34
 
+;; NEXT, the basis of many Forth CODE words.
+;; Defined as a jump to reduce code size.
 #define NEXT jp next_sub
 
 
@@ -780,10 +781,10 @@ var_latest:
         defcode("BUFSZ", 5, 0, __string_buffer_size)
         PSP_PUSH(STRING_BUFFER_SIZE)
         NEXT
-        
+
         defcode("WBUFP", 5, 0, __word_buffer_ptr)
         PSP_PUSH(word_buffer_ptr)
-        NEXT        
+        NEXT
 
         defcode("WBUF", 4, 0, __word_buffer)
         PSP_PUSH(word_buffer)
@@ -1393,30 +1394,30 @@ divACbyDE:
         ld a, c
         ld l, b
 sqrt_la:
-	ld de, 0040h	; 40h appends "01" to D
-	ld h, d
-	
-	ld b, 7
-	
-	; need to clear the carry beforehand
-	or a
+        ld de, 0040h	; 40h appends "01" to D
+        ld h, d
+
+        ld b, 7
+
+        ; need to clear the carry beforehand
+        or a
 
 sqrt_loop:
-	sbc hl, de
-	jr nc, $+3
-	add hl, de
-	ccf
-	rl d
-	rla
-	adc hl, hl
-	rla
-	adc hl, hl
-	
-	djnz sqrt_loop
-	
-	sbc hl, de		; optimised last iteration
-	ccf
-	rl d
+        sbc hl, de
+        jr nc, $+3
+        add hl, de
+        ccf
+        rl d
+        rla
+        adc hl, hl
+        rla
+        adc hl, hl
+
+        djnz sqrt_loop
+
+        sbc hl, de		; optimised last iteration
+        ccf
+        rl d
         ld b, 0
         ld c, d
         pop de
@@ -1720,7 +1721,7 @@ add16to32_done:
         ld (bit_cache), ix
         ld hl, (bit_cache)
         HL_TO_BC
-        ld ix,(save_ix)        
+        ld ix,(save_ix)
         POP_DE_RS
         NEXT
 
@@ -2722,7 +2723,7 @@ zero_blk_name_buffer:
 scr_name: .db "SCRATCH",0
         ;; ( -- )
         defcode("CSCR",4,0,create_scratch)
-        call zero_blk_name_buffer        
+        call zero_blk_name_buffer
         push bc
         ld bc, scr_name
         push bc
@@ -3027,20 +3028,19 @@ prog:
 ;;      .dw get_str_forth
         .dw word, find, dup, zbranch, 48
         .dw lit, var_state, fetch, zbranch, 18, to_cfa, execute, space
-        .dw lit,    ok_msg, putstrln, branch, -34
-        
+        .dw lit, ok_msg, putstrln, branch, -34
+
         .dw dup, qimmed, zbranch, 6
         .dw branch, -26
-        
+
         .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -66
         .dw done
 
 here_start .equ AppBackupScreen
-return_stack_top .equ data_end        
+return_stack_top .equ data_end
 data_start:
 
 save_latest: .dw star
-save_here:   .dw scratch        
-scratch:
-                .fill 400, 0
+save_here:   .dw scratch
+scratch: .fill 400, 0
 data_end:
