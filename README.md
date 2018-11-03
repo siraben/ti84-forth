@@ -149,8 +149,8 @@ writing it out manually.
 
 ## To be Implemented
 - [x] Ability to read/write programs
-  - [x] `WB` word to writeback 2048 bytes of data starting from
-        `SCRATCH`.
+  - [x] `WB` word to writeback ~~2048~~ 400 (see *Current Limitations*)
+         bytes of data starting from the address of `SCRATCH`.
   - [x] Ability to "execute" strings (so that programs can be
         interpreted).
 - [x] User input
@@ -159,22 +159,29 @@ writing it out manually.
 - [x] Output
   - [x] Displaying strings
 - [x] Proper support for compile/interpret mode
-- [ ] Assembler to convert Forth words into `.dw` data segments to be
+- [x] Assembler to convert Forth words into `.dw` data segments to be
 pasted into the program.
-- [ ] Ability to switch to a "plot"
-  - [ ] So you may want to plot something and still go back to the
-        REPL when needed.
-- [ ] REPL
+- [x] Ability to switch to a "plot"
+- [x] REPL
   - [x] Basic Read/Eval/Print/Loop
   - [x] Allowing more than one word at a time input
   - [x] Respect hidden flag to avoid infinite looping. (`:` makes the
         word hidden).
   - [x] Reading numbers (support for 0-10 inclusive hardcoded, but not
-        a general algorith).  See `programs/number.fs`
-- [ ] Document Forth words
-- [ ] Add assembler (so ASM programs can be made!)
-- [ ] Implement `DOES>`
+        a general algorithm).  See `programs/number.fs`
+- [ ] Document Forth words (partially done)
+- [ ] Add Z80 assembler in Forth (so ASM programs can be made!)
+- [x] Implement `DOES>`
 - [x] Implement `SIMG` (save image) and `LIMG` (load image) to save
       and load sessions.
 - [x] Add sound capabilities
 - [x] Add a way to put data on the screen as pixels (for export via screenshots).
+
+## Current Limitations
+- [ ] Increase scratch buffer size.  Limited to 400 bytes because of
+      maximum executable program size, turn it into a Flash
+      application?
+- [ ] REPL prints out "ok" at the end of each word parsed, `QUIT` not
+      implemented.
+- [ ] Indirect threading means we cannot use scratch space in
+      regions > $C000 because of OS limitations.
