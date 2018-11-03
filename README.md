@@ -62,6 +62,41 @@ and that you have backed up your calculator!  An easy way to back up
 RAM contents is by creating a group, refer to the manual on how to do
 this.
 
+## Using the Interpreter
+First of all, you need to know how to type in the darn thing.
+Simple.  Once you run the program with `Asm(prgmFORTH)`, hit `2nd`
+then `ALPHA` to enter alpha lock mode, and now you can type the
+characters from `A-Z`.  Here are a couple of things to keep in mind.
+
+- Left and right arrows are bound to character delete and space insert
+  respectively.
+- Hitting `CLEAR` clears the current input line.
+- Hitting `ENTER` sends it over to the interpreter.
+
+If you want to see the keymap, find the label `key_table` in
+`forth.asm`.  This table maps the keys received by `KEY` to the
+appropriate character.
+
+### Typing ASCII Characters
+See the `2nd` or `ALPHA` key combos (in blue on the calculator) for
+information on how to type the following characters: `[]{}"?:`.
+
+| Character | Key Sequence  |
+| :---:     | :---:         |
+| `;`       | `2nd .`       |
+| `!`       | `2nd PRGM`    |
+| `@`       | `2nd APPS`    |
+| `=`       | `2nd MATH`    |
+| `'`       | `2nd +`       |
+| `<`       | `2nd X,T,Θ,n` |
+| `>`       | `2nd STAT`    |
+| `\`       | `2nd ÷`       |
+| `_`       | `2nd VARS`    |
+|           |               |
+
+## Exiting the Interpreter
+Type `BYE` and hit `ENTER`.
+
 ## Loading Forth Programs onto the calculator
 To convert `hello.fth` into a list of bytes, run.
 ```shell
@@ -133,6 +168,7 @@ track of the top element in the stack.
 | BC           | Top of stack (TOS)            |
 | IX           | Return stack pointer (RSP)    |
 | SP           | Parameter stack pointer (PSP) |
+
 ### Reading List
 Documentation can vary from very well-documented to resorting to
 having to read the source code of `spasm-ng` to figure out how
