@@ -818,6 +818,10 @@ var_latest:
         PSP_PUSH(scratch)
         NEXT
 
+        defcode("ABS",3,0,__abs)
+        PSP_PUSH(AppBackUpScreen)
+        NEXT
+
         defcode("PLOTSS",6,0,__plot_s_screen)
         PSP_PUSH(plotSScreen)
         NEXT
@@ -2015,20 +2019,17 @@ get_char_end:
         call unget_char
 
         NEXT
+;;  The current gets_ptr may be at a different string buffer, so we can't compare it.
 unget_char:
         push hl
         push de
         ld hl, (gets_ptr)
-        ld de, string_buffer
-        b_call _CpHLDE
-        scf
-        jr z, unget_char_done
+        ;; b_call _CpHLDE
+        ;; scf
+        ;; jr z, unget_char_done
         dec hl
         ld (gets_ptr), hl
-        or a
-
 unget_char_done:
-        pop de
         pop hl
         ret
 
@@ -2296,16 +2297,16 @@ strcmp_exit:
         defword("USED",4,0,used)
         .dw here, fetch, hz, sub, exit
 
-        ;; Save the current state into the scratch buffer.
-        ;; Assuming the current state is the data after the buffer
         defword("SIMG",4,0,save_image)
-        .dw writeback, exit
+        .dw here, fetch, lit, save_here, store
+        .dw latest, fetch, lit, save_latest, store
+        .dw __scratch, hz, used, cmove, writeback, exit
 
         ;; Load the scratch buffer back into the current state.
         defword("LIMG",4,0,load_image)
         .dw lit, save_here, fetch, here, store
         .dw lit, save_latest, fetch, latest, store
-        .dw exit
+        .dw hz, lit, scratch, lit, save_here, fetch, hz, sub, cmove, exit
 
         defword(">DFA",4,0,to_dfa)
         .dw to_cfa, four_plus, one_minus, exit
@@ -2657,6 +2658,34 @@ dodoes:
 
         ;; This word was bootstrapped from an interpreted definition.
         defword("SEE",3,0,see)
+        ;; New version in progress, doesn't seem to work well.
+        ;; .dw word, find, here, fetch, latest, fetch, lit, 2, pick, over, neql, zbranch, 12
+        ;; .dw nip, dup, fetch, branch, 65514, drop, swap, lit, 58, emit, space, dup, id_dot
+        ;; .dw space, dup, qimmed, zbranch, 19, litstring, 10
+        ;; .db "IMMEDIATE "
+        ;; .dw to_dfa, key, drop, two_dup, greater_than, zbranch, 293, dup, fetch, tick, lit
+        ;; .dw over, eql, zbranch, 16, drop, two_plus, dup, fetch, u_dot, branch, 257, tick
+        ;; .dw litstring, over, eql, zbranch, 54, drop, lit, 83, emit, two_plus, dup, fetch
+        ;; .dw dup, u_dot, lit, 34, emit, space, swap
+        ;; .dw two_plus, swap, two_dup, tell
+        ;; .dw lit, 34, emit, space, add, one_plus, branch, 193, tick, zbranch, over, eql
+        ;; .dw zbranch, 42, drop
+        ;; .dw litstring, 10
+        ;; .db "0BRANCH ( "
+        ;; .dw two_plus, dup, fetch, u_dot, litstring, 2
+        ;; .db ") "
+        ;; .dw branch, 141, tick, branch, over, eql, zbranch, 41, drop, litstring, 9
+        ;; .db "BRANCH ( "
+        ;; .dw two_plus, dup, fetch, u_dot, litstring, 2
+        ;; .db ") "
+        ;; .dw branch, 90, tick, tick, over, eql, zbranch, 28, drop, lit, 39, emit, space
+        ;; .dw two_plus, dup, fetch, cfa_to, id_dot, space, branch, 52, tick, exit, over
+        ;; .dw eql, zbranch, 30, drop, two_dup, two_plus, neql, zbranch, 14, litstring, 5
+        ;; .db "EXIT "
+        ;; .dw branch, 12, dup, cfa_to, id_dot, space, drop, two_plus, branch, 65235
+        ;; .dw lit, 59, emit, cr, two_drop, exit
+
+        ;; Old version of SEE
         .dw word, find, here, fetch, latest, fetch, lit, 2, pick, over, neql, zbranch, 12
         .dw nip, dup, fetch, branch, 65514, drop, swap, lit, 58, emit, space, dup, id_dot
         .dw space, dup, qimmed, zbranch, 10, lit, 73, emit, space, to_dfa, key, drop
@@ -2892,92 +2921,6 @@ FreqOutDone:
         pop bc
         NEXT
 
-
-
-        ;; ( x y -- addr bitmask )
-        defcode("GETP", 4, 0, get_pixel_forth)
-        ld l, c
-        pop bc
-        ld a, c
-        push de
-
-        call get_pixel
-        pop de
-        push hl
-        ld b, 0
-        ld c, a
-        NEXT
-
-;; Given the x-coordinate in A and the y-coordinate in L, return in HL
-;; the address and a bitmask in A.
-get_pixel:
-        ld     h, 0
-        ld     d, h
-        ld     e, l
-        add    hl, hl
-        add    hl, de
-        add    hl, hl
-        add    hl, hl
-
-        ld     e, a
-        srl    e
-        srl    e
-        srl    e
-        add    hl, de
-
-        ld     de, plotSScreen
-        add    hl, de
-        and 7
-        ld a, $80
-        ret z
-        ld b, a
-
-get_pixel_loop:
-        rrca
-        djnz get_pixel_loop
-        ret
-
-
-        ;; Darken a pixel
-        defcode("DARKP",5,0,darken_pixel)
-        ld l, c
-        pop bc
-        ld a, c
-        push de
-        call   get_pixel
-        or     (hl)
-        ld     (hl), a
-        pop de
-        pop bc
-        NEXT
-
-
-        defcode("TOGP",4,0,toggle_pixel)
-        ld l, c
-        pop bc
-        ld a, c
-        push de
-        call   get_pixel
-        xor    (hl)
-        ld     (hl), a
-        pop de
-        pop bc
-        NEXT
-
-        defcode("LITP",4,0,lighten_pixel)
-        ld l, c
-        pop bc
-        ld a, c
-        push de
-        call   get_pixel
-        cpl
-        and    (hl)
-        ld     (hl), a
-        pop de
-        pop bc
-        NEXT
-
-
 ;; Creating an editor.  Rough idea: We want to have a block-editing
 ;; system to be able to save and read programs.  We use the small
 ;; variable width font instead of the large one, so that we may place
@@ -3022,6 +2965,7 @@ prog_exit: .dw 0
 save_sp:   .dw 0
 save_ix:   .dw 0
 
+return_stack_top  .EQU    AppBackUpScreen+764
 ;; We should be able to define an interpreter in Forth that supports compiled code if we try.
 ;; Coming later:  A interpreter defined in Forth and meta-compiled.
 prog:
@@ -3036,11 +2980,11 @@ prog:
         .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -66
         .dw done
 
-here_start .equ AppBackupScreen
-return_stack_top .equ data_end
-data_start:
 
+data_start:
+here_start:
+scratch:
+             .fill 300, 0
 save_latest: .dw star
 save_here:   .dw scratch
-scratch: .fill 400, 0
 data_end:

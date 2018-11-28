@@ -21,7 +21,7 @@ reinventing the wheel with each program.
 
 Wouldn't it be great to have a programming language on the TI-84+
 that's much faster than TI-BASIC but easier to understand and as low
-level as assembly?  Forth is just that.  (read _Starting FORTH_ for an
+level as assembly?  Forth is just that.  (Read _Starting FORTH_ for an
 excellent introduction to Forth).  It's low level, it's simple, but
 also _easy to type_, especially when you're on a calculator with a
 non-QWERTY keyboard.  It is a very powerful language, allowing you to
@@ -29,7 +29,7 @@ do things like change the syntax of the language itself.  `IF`,
 `WHILE`, `CONSTANT` etc. statements are all implemented in Forth!
 Think of it as a untyped C with a REPL and the power of Lisp macros.
 
-It's also easy to implement incrementally, with continuous testing.
+It's also easy to implement incrementally through continuous testing.
 In fact, once the base REPL was implemented, most of the programming
 and testing happened _on_ the calculator itself!
 
@@ -106,7 +106,7 @@ it over to the calculator.
 
 ## Features
 - A 16-bit Forth on a 8-bit chip
-- Contains 171 words (and counting) for everything from memory
+  - Contains 225 words (and counting) for everything from memory
   management to drawing pixels, de-compilation and even playing sounds
   over the I/O port.
 - Support for writeback.  Use `SIMG` (save image) and `LIMG` (load
@@ -118,18 +118,21 @@ See `programs/` for program samples, including practical ones.
 ## Available Words
 ```text
 EXIT FOO BAR DUP + - AND OR XOR << >> INVERT DROP SWAP OVER ROT -ROT
-2DROP 2DUP 2SWAP 1+ 1- 4+ 4- >R R> RDROP LIT LITSTR TELL STRLEN STRCHR
-!  @ +!  -!  C!  C@ C@C!  CMOVE EXECUTE BASE STATE LATEST SP0 [ ] ?SE
-HERE DOCOL BUF BUFSZ WBUF WBUFSZ RP0 H0 F_IMMED F_HIDDEN F_LENMASK SCR
-PLOTSS ' , SP@ SP!  RP@ RP!  BRANCH 0BRANCH ?DUP = <> >= <= < > 0=
-RAND ASK KEY KEYC EMIT .  ?  AKEY TO_ASCII * /MOD 0 1 2 3 4 5 6 7 8 9
-10 TS SPACE CR AT-XY PUTS PUTLN GETS GETC UNGETC WORD IMMED?  IMMED
->NFA >CFA STR= FIND WB USED SIMG LIMG >DFA CREATE DOCOL_H : ; PAGE
-HIDDEN ?HIDDEN MOD / NEGATE TRUE FALSE NOT LITERAL NIP TUCK ID.  HIDE
-IF THEN ELSE BEGIN UNTIL AGAIN WHILE REPEAT CHAR (COMP) CONST ALLOT
-CELLS RECURSE VAR DO LOOP +LOOP FORGET '0' '9' WITHIN NUM?  NUM CFA>
-PICK SEE WORDS CASE OF ENDOF ENDCASE I SMIT PLAY PLOT GETP DARKP TOGP
-LITP WR PN BYE STAR
+2DROP 2DUP 2SWAP 1+ 1- 4+ 4- 2+ 2- >R R> R@ 2>R 2R> RDROP 2RDROP LIT
+LITSTR S" .Q TELL STRLEN STRCHR !  @ +!  -!  C!  C@ C@C!  CMOVE
+EXECUTE BASE PREC STATE LATEST SP0 [ ] ?SE HERE DOCOL BUF BUFSZ WBUFP
+WBUF WBUFSZ RP0 H0 F_IMMED F_HIDDEN F_LENMASK SCR ABS PLOTSS ' , C,
+SP@ SP!  RP@ RP!  BRANCH 0BRANCH ?DUP = <> >= <= < > 0= KEY KEYC EMIT
+T.  ?  AKEY TO_ASCII * /MOD SQRT 0 1 2 3 4 5 6 7 8 9 10 FRAND F.
+FREAD F* FSQUARE F= FDUP FDROP FSWAP F+ F/ FRCI F- FSQRT MD5 D/MOD UM*
+D+ M+ DS SPACE CR AT-XY PUTS PUTLN GETS GETC UNGETC WORD ?IMMED IMMED
+>NFA >CFA STR= FIND WB USED SIMG LIMG >DFA CREATE DOCOL_H : ; (DOES>)
+DOES> PAGE HIDDEN ?HIDDEN MOD / NEGATE TRUE FALSE NOT LITERAL NIP TUCK
+ID.  HIDE IF THEN ELSE BEGIN UNTIL AGAIN WHILE REPEAT CHAR (COMP)
+CONST ALLOT CELLS RECURSE VAR DO LOOP +LOOP FORGET '0' '9' WITHIN NUM?
+NUM CFA> PICK U.  UWIDTH SPACES U.R U.  .  DEPTH .S HEX DEC SEE WORDS
+CASE OF ENDOF ENDCASE I J CSCR CBLK FBLK RUN LOAD SMIT PLOT WR PN BYE
+STAR
 ```
 
 ## Screenshots

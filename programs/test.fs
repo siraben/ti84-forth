@@ -127,37 +127,5 @@ So we need to convert ASCII 0-9 into BCD.
 ;
 
 
-: SLIDE
-  BEGIN
-    KEY DUP 5 <>
-  WHILE
-    PAGE
-    CASE
-      3 OF 1+ ENDOF \ up arrow
-      4 OF 1- ENDOF \ down arrow
-    ENDCASE
-    DUP . CR
-  REPEAT
-  DROP
-;
-
-: D.
-  BASE @ D/MOD
-  2DUP OR
-  IF
-         RECURSE
-  ELSE
-         2DROP
-  THEN
-
-  DUP 10 <
-  IF
-         NUM 48
-  ELSE
-         10 - NUM 65
-  THEN + EMIT
-;
-
-
 ." TEST loaded."
 ." We have used " USED . ." bytes of RAM."
