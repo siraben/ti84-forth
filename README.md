@@ -97,12 +97,15 @@ information on how to type the following characters: `[]{}"?:`.
 Type `BYE` and hit `ENTER`.
 
 ## Loading Forth Programs onto the calculator
-To convert `hello.fth` into a list of bytes, run:
 ```shell
-hexdump -e '".db "16/1 "$%02x, " "\n"' hello.fth | sed 's/$  ,/$00,/g' | sed 's/.$//' | sed 's/$0a/$20/g'
+function fmake e {
+    hexdump -e '".db "16/1 "$%02x, " "\n"' "$1" | sed 's/$  ,/$00,/g' | sed 's/.$//' | sed 's/$0a/$20/g' > "${1%.*}.asm" && ./spasm "${1%.*}.asm" "${1%.*}.8xp" && rm "${1%.*}.asm"
+}
 ```
-Copy and paste this list of bytes into an .asm file, assembly it and send
-it over to the calculator.
+Once you defined this function in your shell you can just type `fmake
+hello.fs` and transfer the compiled `hello.8xp` to the calculator.  To
+load this file into the interpreter you have to run `LOAD HELLO` in
+the Forth REPL.
 
 ## Features
 - A 16-bit Forth on a 8-bit chip

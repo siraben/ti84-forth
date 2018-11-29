@@ -1791,6 +1791,16 @@ mul32by8_noAdd:
         pop bc
         NEXT
 
+        defcode("CURX",4,0,current_x)
+        push bc
+        ld bc, (curCol)
+        NEXT
+        
+        defcode("CURY",4,0,current_y)
+        push bc
+        ld bc, (curRow)
+        NEXT        
+
         ;; Display a null-terminated string starting at the address
         ;; given to by the TOS.
 
@@ -2984,7 +2994,7 @@ prog:
 data_start:
 here_start:
 scratch:
-             .fill 300, 0
+             .fill 350, 0
 save_latest: .dw star
 save_here:   .dw scratch
 data_end:
