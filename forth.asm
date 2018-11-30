@@ -822,6 +822,9 @@ var_latest:
         PSP_PUSH(AppBackUpScreen)
         NEXT
 
+        defword("UALT",4,0, use_alt)
+        .dw lit, AppBackUpScreen, here, store, exit
+
         defcode("PLOTSS",6,0,__plot_s_screen)
         PSP_PUSH(plotSScreen)
         NEXT
@@ -1092,6 +1095,14 @@ key_asm:
         b_call _PutC
         pop bc
         NEXT
+
+        defcode("EMITS", 5, 0, emit_small)
+        ld a, c
+        push de
+        b_call _VPutMap
+        pop de
+        pop bc
+        NEXT        
 
 
         ;; Print the top of the stack.
@@ -1782,24 +1793,23 @@ mul32by8_noAdd:
         b_call _Newline
         NEXT
 
-        defcode("AT-XY",5,0,atxy)
-        ld a, c
-        ld (curRow), a
-        pop bc
+        defcode("AT-XY",5,0,at_xy)
         ld a, c
         ld (curCol), a
         pop bc
-        NEXT
-
-        defcode("CURX",4,0,current_x)
-        push bc
-        ld bc, (curCol)
+        ld a, c
+        ld (curRow), a
+        pop bc
         NEXT
         
-        defcode("CURY",4,0,current_y)
-        push bc
-        ld bc, (curRow)
-        NEXT        
+        defcode("ATS-XY",6,0,ats_xy)
+        ld a, c
+        ld (PenCol), a
+        pop bc
+        ld a, c
+        ld (PenRow), a
+        pop bc
+        NEXT
 
         ;; Display a null-terminated string starting at the address
         ;; given to by the TOS.
@@ -2469,8 +2479,6 @@ dodoes:
         push hl
         NEXT
 
-
-
         defcode("PAGE",4,0,page)
         push bc
         push de
@@ -2482,6 +2490,19 @@ dodoes:
         pop bc
         NEXT
 
+        defcode("TOG-SCRL",8,0,toggle_scroll)
+        ld a, (IY + AppFlags)
+        ld l, %00000100
+        xor l
+        ld (IY + AppFlags), a        
+        NEXT
+
+        defcode("INVTXT",6,0,inverse_text)
+        ld a, (IY + TextFlags)
+        ld l, %00001000
+        xor l
+        ld (IY + TextFlags), a
+        NEXT
 
         defcode("HIDDEN",6,0,hidden)
         BC_TO_HL
@@ -2942,9 +2963,7 @@ FreqOutDone:
         ;; interpreter to read the entered text
         .dw cr, get_str_forth, cr, __string_buffer, swap, __string_buffer_size, cmove, get_str_forth, exit
 
-        defcode("PN", 2, 0, print_nice)
-        ld hl, 0
-        ld (PenCol), hl
+        defcode("TELLS", 5, 0, tell_small)
         BC_TO_HL
         b_call _VPutS
         b_call _NewLine

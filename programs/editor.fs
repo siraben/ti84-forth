@@ -1,4 +1,7 @@
-\ An editor.
+\ An editor.  Since we're using a lot of memory we're going to assign
+\ it to use AppBackupScreen.
+
+UALT
 : ( IMMED
     BEGIN
       GETC NUM 41 = IF
@@ -7,20 +10,19 @@
     AGAIN
 ;
 
-: DASH NUM 45 EMIT ;
-
-( Display the bar )
-: BAR NUM 16 0 DO I 1 AT-XY DASH LOOP ;
-
 ( Display the title )
-: TITLE 0 0 AT-XY ." EDITOR" ;
+: TITLE 0 0 AT-XY
+        INVTXT
+        ."      EDITOR     "
+        INVTXT
+;
 
 
 ( Display the text area )
 : TXTAREA ( addr -- addr )
   DUP
-  0 2 AT-XY
-  NUM 95 0
+  1 0 AT-XY
+  NUM 112 0
   DO
     DUP C@ EMIT 1+
   LOOP
@@ -29,9 +31,14 @@
 
 : NEXT-LINE NUM 16 + ;
 : PREV-LINE NUM 16 - ;
+: NEXT-PAGE NUM 80 + ;
+: PREV-PAGE NUM 80 - ;
 
-: FRAME PAGE TITLE BAR TXTAREA ;
+: FRAME PAGE TITLE TXTAREA ;
+: DELETE-MODE ;
+
 : EDITOR ( addr -- addr )
+  TOG-SCRL
   BEGIN
     FRAME
     KEY DUP 5 <>
@@ -39,7 +46,11 @@
     CASE
       3 OF PREV-LINE ENDOF
       4 OF NEXT-LINE ENDOF
+      1 OF NEXT-PAGE ENDOF
+      2 OF PREV-PAGE ENDOF
+      10 OF DELETE-MODE ENDOF
     ENDCASE
   REPEAT
+  TOG-SCRL
   DROP
 ;
