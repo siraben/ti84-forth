@@ -1157,7 +1157,6 @@ akey_asm:
         ld a, (hl)
         cp ' '
         jp z, akey_asm
-
         ret
 
 akey_return_space:
