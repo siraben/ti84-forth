@@ -120,8 +120,8 @@ See `programs/` for program samples, including practical ones.
 
 ## Available Words
 ```text
-EXIT FOO BAR DUP + - AND OR XOR << >> INVERT DROP SWAP OVER ROT -ROT
-2DROP 2DUP 2SWAP 1+ 1- 4+ 4- 2+ 2- >R R> R@ 2>R 2R> RDROP 2RDROP LIT
+EXIT DUP + - AND OR XOR << >> INVERT DROP SWAP OVER ROT -ROT
+2DROP 2DUP 2SWAP 1+ 1- 2+ 2- >R R> R@ 2>R 2R> RDROP 2RDROP LIT
 LITSTR S" .Q TELL STRLEN STRCHR !  @ +!  -!  C!  C@ C@C!  CMOVE
 EXECUTE BASE PREC STATE LATEST SP0 [ ] ?SE HERE DOCOL BUF BUFSZ WBUFP
 WBUF WBUFSZ RP0 H0 F_IMMED F_HIDDEN F_LENMASK SCR ABS PLOTSS ' , C,
@@ -149,15 +149,15 @@ the 20 (or less) lines of code at `programs/memview.fs`.
 
 ![What forth.asm looks like loaded into RAM.](repl3.png)
 
-### An interactive REPL
-![REPL demonstration](repl1.png)
-
-### Define new words...
+### Define new words with a REPL...
 ![Defining DOUBLE](repl4.png)
 
 ### ...and use them.
 ![Using DOUBLE](repl5.png)
 
+### Load programs
+Simple unfinished modal text editor with a scrollable screen.
+![Unfinished text editor](./images/editor/1.png)
 
 ## Design Notes
 ### Use of Macros
@@ -218,13 +218,14 @@ pasted into the program.
 - [x] Implement `SIMG` (save image) and `LIMG` (load image) to save
       and load sessions.
 - [x] Add sound capabilities
-- [x] Add a way to put data on the screen as pixels (for export via screenshots).
+- [x] Add a way to put data on the screen as pixels (for export via
+      screenshots).
+- [ ] Add computer program to allow the user to select the words for a
+      custom Forth system.
 
 ## Current Limitations
-- [ ] Increase scratch buffer size.  Limited to 400 bytes because of
-      maximum executable program size, turn it into a Flash
-      application?
 - [ ] REPL prints out "ok" at the end of each word parsed, `QUIT` not
       implemented.
-- [ ] Indirect threading means we cannot use scratch space in
-      regions > $C000 because of OS limitations.
+- [ ] Indirect threading means we cannot use scratch space in addreses
+      higher than $C000 as if the program counter exceeds $C000 it
+      crashes the OS.

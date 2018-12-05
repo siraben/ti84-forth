@@ -214,16 +214,6 @@ _:
         POP_DE_RS
         NEXT
 
-        defcode("FOO",3,0,foo)
-        push bc
-        ld bc, 1234
-        NEXT
-
-        defcode("BAR",3,0,bar)
-        push bc
-        ld bc, 5678
-        NEXT
-
         defcode("DUP",3,0,dup)
         push bc
         NEXT
@@ -418,20 +408,6 @@ bit_cache: .dw 0
 
 
         defcode("1-", 2, 0, one_minus)
-        dec bc
-        NEXT
-
-        defcode("4+", 2, 0, four_plus)
-        inc bc
-        inc bc
-        inc bc
-        inc bc
-        NEXT
-
-        defcode("4-", 2, 0, four_minus)
-        dec bc
-        dec bc
-        dec bc
         dec bc
         NEXT
 
@@ -2328,7 +2304,7 @@ strcmp_exit:
         .dw hz, lit, scratch, lit, save_here, fetch, hz, sub, cmove, exit
 
         defword(">DFA",4,0,to_dfa)
-        .dw to_cfa, four_plus, one_minus, exit
+        .dw to_cfa, lit, 3, add, exit
 
         defcode("CREATE",6,0,create) ;; ( name length -- )
         ;; Create link pointer and update var_latest to point to it.
@@ -2993,7 +2969,8 @@ prog_exit: .dw 0
 save_sp:   .dw 0
 save_ix:   .dw 0
 
-return_stack_top  .EQU    AppBackUpScreen+764
+return_stack_top  .EQU    $91DC + 294
+
 ;; We should be able to define an interpreter in Forth that supports compiled code if we try.
 ;; Coming later:  A interpreter defined in Forth and meta-compiled.
 prog:
