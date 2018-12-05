@@ -33,7 +33,30 @@ It's also easy to implement incrementally through continuous testing.
 In fact, once the base REPL was implemented, most of the programming
 and testing happened _on_ the calculator itself!
 
-## How do I get it?
+## Getting the interpreter
+Download the latest binary from the
+[Releases](https://github.com/siraben/ti84-forth/releases) page.
+
+### The Real Thing
+- A TI-84+ calculator!
+- [TI Connect CE](https://education.ti.com/en/products/computer-software/ti-connect-ce-sw)
+- (Optional) A 2.5 mm to 3.5 mm audio cable to connect the I/O port
+  with a speaker.
+
+Flash `forth.8xp` to your calculator.  Make sure there's enough space
+and that you have backed up your calculator!  An easy way to back up
+RAM contents is by creating a group, refer to the manual on how to do
+this.
+
+### Emulated
+There are emulators ones for every platform, but in experience the
+easiest one to get started with is
+[jsTIfied](https://www.cemetech.net/projects/jstified/).  Read the
+website's details for more information.  You'll need to obtain a ROM
+image as well, which I can't provide here, but a simple web search
+should lead you to find what you're looking for.
+  
+## Building
 ### Requirements
 - [spasm-ng Z80 assembler](https://github.com/alberthdev/spasm-ng)
   - If you're on a Mac you may need to run the following commands.
@@ -41,27 +64,17 @@ and testing happened _on_ the calculator itself!
 brew install openssl
 cd /usr/local/include
 ln -s ../opt/openssl/include/openssl .
-```  
-  - Compile the assembler with `make` (check required packages and so
-    on).
-- [TI Connect CE](https://education.ti.com/en/products/computer-software/ti-connect-ce-sw)
-- A TI-84+ calculator!
-  - Should work on a TI-83+ as well, but I don't have one so please
-    report bugs if you find them.
-- (Optional) A 2.5 mm to 3.5 mm audio cable to connect the I/O port
-  with a speaker.
-## Building
-Once you have compiled `spasm-ng`, copy `forth.asm` into the cloned
-folder.  Then run:
+```
+  - Compile the assembler with `make` (check required packages for
+    your system).
+
+Copy `forth.asm` into the cloned folder.  Then run:
 
 ```shell
 ./spasm forth.asm forth.8xp
 ```
-Flash `forth.8xp` to your calculator.  Make sure there's enough space
-and that you have backed up your calculator!  An easy way to back up
-RAM contents is by creating a group, refer to the manual on how to do
-this.
 
+Then flash.
 ## Using the Interpreter
 First of all, you need to know how to type in the darn thing.
 Simple.  Once you run the program with `Asm(prgmFORTH)`, hit `2nd`
@@ -228,5 +241,5 @@ pasted into the program.
 - [ ] REPL prints out "ok" at the end of each word parsed, `QUIT` not
       implemented.
 - [ ] Indirect threading means we cannot use scratch space in addreses
-      higher than $C000 as if the program counter exceeds $C000 it
+      higher than `$C000` as if the program counter exceeds `$C000` it
       crashes the OS.
