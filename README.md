@@ -156,6 +156,7 @@ the 20 (or less) lines of code at `programs/memview.fs`.
 ![Using DOUBLE](repl5.png)
 
 ### Load programs
+
 Simple unfinished modal text editor with a scrollable screen.
 ![Unfinished text editor](./images/editor/1.png)
 
