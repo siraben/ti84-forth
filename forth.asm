@@ -218,7 +218,6 @@ _:
         HL_TO_BC
         NEXT
 
-bit_cache: .dw 0
         ;; 16-bit AND operator, yay!
         defcode("AND",3,0,and)
         pop hl
