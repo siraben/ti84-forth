@@ -837,15 +837,13 @@ var_sp:
         NEXT
 
         defcode("BRANCH", 6, 0, branch)
-        ld a, (de)
-        ld l, a
-        inc de
-        ld a, (de)
-        ld h, a
-        dec de
-
+        ex de, hl
+        ld e,(hl)
+        inc hl
+        ld d,(hl)
+        dec hl
         add hl, de
-        HL_TO_DE
+        ex de, hl
         NEXT
 
 ;; cpHLDE [Maths]
