@@ -92,26 +92,13 @@ start:
         ;; TI-84 can't store the string "[", so we have to fix it by
         ;; changing the value of rbrac's string.
 
-        ld hl, name_lbrac
-        inc hl
-        inc hl
-        inc hl
+        ld hl, name_lbrac+3
         ld (hl), 193
 
         ;; Same goes for S" and ."
-        ld hl, name_s_quote
-        inc hl
-        inc hl
-        inc hl
-        inc hl
-        ld (hl), 34
-
-        ld hl, name_dot_quote
-        inc hl
-        inc hl
-        inc hl
-        inc hl
-        ld (hl), 34
+        ld a, 34
+        ld (name_s_quote+4), a
+        ld (name_dot_quote+4), a
 
 ;; NEXT, the basis of many Forth CODE words.
 ;; Defined as a jump to reduce code size.
@@ -231,93 +218,53 @@ _:
         HL_TO_BC
         NEXT
 
-bit_cache: .dw 0
         ;; 16-bit AND operator, yay!
         defcode("AND",3,0,and)
         pop hl
-        ld (bit_cache), hl
-
-        ld hl, bit_cache
+        
         ;; AND lowest byte first.
         ld a, c
-        and (hl)
-        ld (hl), a
-        inc hl
+        and l
+        ld c, a
 
         ld a, b
-        and (hl)
-        ld (hl), a
-        dec hl
-
-        ld a, (hl)
-        ld c, a
-        inc hl
-        ld a, (hl)
+        and h
         ld b, a
         NEXT
 
         defcode("OR",2,0,or)
         pop hl
-        ld (bit_cache), hl
-
-        ld hl, bit_cache
-
+        
         ld a, c
-        or (hl)
-        ld (hl), a
-        inc hl
+        or l
+        ld c, a
 
         ld a, b
-        or (hl)
-        ld (hl), a
-        dec hl
-
-        ld a, (hl)
-        ld c, a
-        inc hl
-        ld a, (hl)
+        or h
         ld b, a
         NEXT
 
         defcode("XOR",3,0,xor)
         pop hl
-        ld (bit_cache), hl
-
-        ld hl, bit_cache
-
         ld a, c
-        xor (hl)
-        ld (hl), a
-        inc hl
+        xor l
+        ld c, a
 
         ld a, b
-        xor (hl)
-        ld (hl), a
-        dec hl
-
-        ld a, (hl)
-        ld c, a
-        inc hl
-        ld a, (hl)
+        xor h
         ld b, a
         NEXT
 
         defcode("<<",2, 0, left_shift)
-        BC_TO_HL
-        add hl, hl
-        HL_TO_BC
+        xor a
+        rl c
+        rl b
         NEXT
 
 
         defcode(">>",2,0, right_shift)
-        push de
-        ld d, b
-        ld e, c
-        srl d
-        rr e
-        ld b, d
-        ld c, e
-        pop de
+        srl b
+        rr c
         NEXT
 
         ;; Bitwise NOT.
@@ -889,15 +836,13 @@ var_sp:
         NEXT
 
         defcode("BRANCH", 6, 0, branch)
-        ld a, (de)
-        ld l, a
-        inc de
-        ld a, (de)
-        ld h, a
-        dec de
-
+        ex de, hl
+        ld e,(hl)
+        inc hl
+        ld d,(hl)
+        dec hl
         add hl, de
-        HL_TO_DE
+        ex de, hl
         NEXT
 
 ;; cpHLDE [Maths]
