@@ -536,14 +536,12 @@ strchr_succ:
         inc bc
         ld a, (bc)
         ld d, a
-        dec bc
         add hl, de
-        ld a, l
-        ld (bc), a
-        inc bc
         ld a, h
         ld (bc), a
-        inc bc
+        dec bc
+        ld a, l
+        ld (bc), a
 
         pop de
         pop bc
@@ -672,17 +670,16 @@ var_latest:
 
         defcode("]",1,0,rbrac)
         ld hl, var_state
-        ld (hl), 0
+        xor a
+        ld (hl), a
         inc hl
-        ld (hl), 0
+        ld (hl), a
         NEXT
 
         cell_alloc(var_stack_empty,1)
         defcode("?SE", 3, 0, stack_emptyq)
         push bc
-        ld hl, (var_stack_empty)
-        ld b, h
-        ld c, l
+        ld bc, (var_stack_empty)
         NEXT
 
         cell_alloc(var_here,0)
@@ -812,13 +809,11 @@ _c_comma
         defcode("SP@", 3, 0, sp_fetch)
         ;; Since we can't do ld hl, sp
         push bc
-        ld (var_sp), sp
-        ld hl, (var_sp)
+        ld hl, 0
+        add hl,sp
         HL_TO_BC
         NEXT
-
-var_sp:
-        .dw 0
+        
 
         defcode("SP!", 3, 0, sp_store)
         BC_TO_HL
@@ -878,13 +873,13 @@ cpBCDE:
 
         defcode("0BRANCH", 7, 0, zbranch)
         ld a, c
-        cp 0
+        or a
         jp z, zbranch_maybe
         jp nz, zbranch_fail
 
 zbranch_maybe:
         ld a, b
-        cp 0
+        or a
         jp nz,zbranch_fail
         pop bc
         jp branch
@@ -2063,7 +2058,7 @@ word_done:
         ld (hl), a
         pop de
         ld hl, word_buffer
-        ld b, 0  ;; c should contain the number of characters.
+        ld b, a  ;; c should contain the number of characters.
         push hl
         NEXT
 
@@ -2074,8 +2069,8 @@ word_done:
         inc bc
         inc bc
         ld a, (bc)
-        bit 7, a
-        jp z, fal
+        rla
+        jp nc, fal
         jp tru
 
         ;; Make the last word immediate
@@ -2175,7 +2170,7 @@ find_retry_cont:
         jp find_loop
 find_maybe_fail:
         ld a, h
-        cp 0 ;; or a
+        or a
         jp z, find_fail
         jp nz, find_retry_cont
 find_fail:
@@ -2272,18 +2267,17 @@ strcmp_exit:
         inc hl
         inc hl
         ;; Now we have to write the length of the new word.
-        ld a, c
-        ld (hl), a
+        ld (hl), c
         inc hl
 
         ;; LDIR loads the value at (HL) to (DE), increments both,
         ;; decrements BC, loops until BC = 0.
         ex de, hl
         pop hl
-        ld b, 0 ;; sanitize input, maybe?
+        xor a
+        ld b, a ;; sanitize input, maybe?
         ldir
 
-        xor a
         ld (de), a
         inc de
 
@@ -2402,7 +2396,7 @@ dodoes:
         defcode("PAGE",4,0,page)
         push bc
         push de
-        ld a, 0
+        xor a
         ld (currow), a
         ld (curcol), a
         b_call _ClrScrnFull
