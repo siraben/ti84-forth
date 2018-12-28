@@ -398,10 +398,10 @@ _:
         NEXT
 
         defcode("2RDROP",6,0,two_rdrop)
-        inc ix
-        inc ix
-        inc ix
-        inc ix
+        ex de,hl
+        ld de,4
+        add ix,de
+        ex de,hl
         NEXT
 
         defcode("LIT",3,0,lit)
