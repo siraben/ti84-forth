@@ -4,7 +4,7 @@
 
 
 ;; Push BC to the return stack.
-;; 4 + 19 + 4 + 19 = 46
+;; 10 + 19 + 10 + 19 = 58
 #define PUSH_BC_RS dec ix
 #defcont         \ ld (ix + 0), b
 #defcont         \ dec ix
@@ -18,7 +18,7 @@
 #defcont         \ inc ix
 
 ;; Push HL to the return stack.
-;; 4 + 19 + 4 + 19 = 46
+;; 10 + 19 + 10 + 19 = 58
 #define PUSH_HL_RS dec ix
 #defcont         \ ld (ix + 0), h
 #defcont         \ dec ix
@@ -31,7 +31,7 @@
 #defcont         \ inc ix
 
 ;; Push DE to the return stack.
-;; 4 + 19 + 4 + 19 = 46
+;; 10 + 19 + 10 + 19 = 58
 #define PUSH_DE_RS dec ix
 #defcont         \ ld (ix + 0), d
 #defcont         \ dec ix
@@ -115,14 +115,14 @@ docol:
         NEXT
 
 
-next_sub:               ;; Cycle count (total 47)
+next_sub:               ;; Cycle count (total 38)
         ld a, (de)      ;; 7
         ld l, a         ;; 4
         inc de          ;; 6
         ld a, (de)      ;; 7
         ld h, a         ;; 4
         inc de          ;; 6
-        jp (hl)         ;; 13
+        jp (hl)         ;; 4
 
 
 done:
@@ -327,17 +327,13 @@ _:
         ;; a b c d => c d a b
         defcode("2SWAP",5,0,two_swap)
         PUSH_DE_RS
-        pop de
-        ;; Now DE = C, BC = D, (old-DE)
         pop hl
-        PUSH_HL_RS
-        pop hl
-        ;; DE = C, BC = D, HL = A (old-DE B)
+        ld d,b
+        ld e,c
+        pop bc
+        ex (sp),hl
         push de
-        push bc
         push hl
-        POP_BC_RS
-        ;; c d a, BC = b
         POP_DE_RS
         NEXT
 
@@ -375,8 +371,8 @@ _:
 
         defcode("R@", 2, 0, r_fetch)
         push bc
-        POP_HL_RS
-        PUSH_HL_RS
+        ld l, (ix + 0)
+        ld h, (ix + 1)
         ld c, (hl)
         inc hl
         ld b, (hl)
@@ -397,40 +393,41 @@ _:
         NEXT
 
         defcode("RDROP",5,0,rdrop)
-        POP_HL_RS
+        inc ix
+        inc ix
         NEXT
 
         defcode("2RDROP",6,0,two_rdrop)
-        POP_HL_RS
-        POP_HL_RS
+        inc ix
+        inc ix
+        inc ix
+        inc ix
         NEXT
 
         defcode("LIT",3,0,lit)
-        ld a, (de)
-        ld l, a
-        inc de
-        ld a, (de)
-        ld h, a
-        inc de
         push bc
-        HL_TO_BC
+        ld a, (de)
+        ld c, a
+        inc de
+        ld a, (de)
+        ld b, a
+        inc de
         NEXT
 
         defcode("LITSTR",6,0,litstring)
         ;; String length
-        ld a, (de)
-        ld l, a
-        inc de
-        ld a, (de)
-        ld h, a
-        inc de
-
         push bc ;; old stack top
-        push de ;; push address of string
+        ex de,hl
+        ld c, (hl)
+        inc hl
+        ld b, (hl) ;; BC now contains the string length
+        inc hl
+        
+        push hl ;; push address of string
         HL_TO_BC ;; BC now contains the string length
 
         ;; Skip the string.
-        add hl, de
+        add hl, bc
         ;; Skip null pointer.  (Even though we have the length, because
         ;; we don't have a bcall Linux that can print out a string with
         ;; a certain length).
