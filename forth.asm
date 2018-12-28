@@ -296,25 +296,19 @@ _:
         NEXT
 
         defcode("ROT",3,0,rot)
-        ;; 46 + 10 + 10 + 14 + 14 + 4 + 8 + 58 = 164
-        PUSH_DE_RS
+        ;; 10 + 19 + 11 + 8 = 48
         pop hl
-        pop de
-        push hl
+        ex (sp),hl
         push bc
-        ex de, hl
         HL_TO_BC
-        POP_DE_RS
         NEXT
 
         defcode("-ROT",4,0,nrot)
-        PUSH_DE_RS
-        pop hl
-        pop de
-        push bc
-        push de
-        HL_TO_BC
-        POP_DE_RS
+        ld h,b
+        ld l,c
+        pop bc
+        ex (sp),hl
+        push hl
         NEXT
 
         defcode("2DROP",5,0,two_drop)
