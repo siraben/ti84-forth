@@ -4,7 +4,7 @@
 
 
 ;; Push BC to the return stack.
-;; 4 + 19 + 4 + 19 = 46
+;; 10 + 19 + 10 + 19 = 58
 #define PUSH_BC_RS dec ix
 #defcont         \ ld (ix + 0), b
 #defcont         \ dec ix
@@ -18,7 +18,7 @@
 #defcont         \ inc ix
 
 ;; Push HL to the return stack.
-;; 4 + 19 + 4 + 19 = 46
+;; 10 + 19 + 10 + 19 = 58
 #define PUSH_HL_RS dec ix
 #defcont         \ ld (ix + 0), h
 #defcont         \ dec ix
@@ -31,7 +31,7 @@
 #defcont         \ inc ix
 
 ;; Push DE to the return stack.
-;; 4 + 19 + 4 + 19 = 46
+;; 10 + 19 + 10 + 19 = 58
 #define PUSH_DE_RS dec ix
 #defcont         \ ld (ix + 0), d
 #defcont         \ dec ix
@@ -115,14 +115,14 @@ docol:
         NEXT
 
 
-next_sub:               ;; Cycle count (total 47)
+next_sub:               ;; Cycle count (total 38)
         ld a, (de)      ;; 7
         ld l, a         ;; 4
         inc de          ;; 6
         ld a, (de)      ;; 7
         ld h, a         ;; 4
         inc de          ;; 6
-        jp (hl)         ;; 13
+        jp (hl)         ;; 4
 
 
 done:
@@ -296,25 +296,19 @@ _:
         NEXT
 
         defcode("ROT",3,0,rot)
-        ;; 46 + 10 + 10 + 14 + 14 + 4 + 8 + 58 = 164
-        PUSH_DE_RS
+        ;; 10 + 19 + 11 + 8 = 48
         pop hl
-        pop de
-        push hl
+        ex (sp),hl
         push bc
-        ex de, hl
         HL_TO_BC
-        POP_DE_RS
         NEXT
 
         defcode("-ROT",4,0,nrot)
-        PUSH_DE_RS
-        pop hl
-        pop de
-        push bc
-        push de
-        HL_TO_BC
-        POP_DE_RS
+        ld h,b
+        ld l,c
+        pop bc
+        ex (sp),hl
+        push hl
         NEXT
 
         defcode("2DROP",5,0,two_drop)
@@ -333,17 +327,13 @@ _:
         ;; a b c d => c d a b
         defcode("2SWAP",5,0,two_swap)
         PUSH_DE_RS
-        pop de
-        ;; Now DE = C, BC = D, (old-DE)
         pop hl
-        PUSH_HL_RS
-        pop hl
-        ;; DE = C, BC = D, HL = A (old-DE B)
+        ld d,b
+        ld e,c
+        pop bc
+        ex (sp),hl
         push de
-        push bc
         push hl
-        POP_BC_RS
-        ;; c d a, BC = b
         POP_DE_RS
         NEXT
 
@@ -381,8 +371,8 @@ _:
 
         defcode("R@", 2, 0, r_fetch)
         push bc
-        POP_HL_RS
-        PUSH_HL_RS
+        ld l,(ix + 0)
+        ld h,(ix + 1)
         ld c, (hl)
         inc hl
         ld b, (hl)
@@ -403,40 +393,41 @@ _:
         NEXT
 
         defcode("RDROP",5,0,rdrop)
-        POP_HL_RS
+        inc ix
+        inc ix
         NEXT
 
         defcode("2RDROP",6,0,two_rdrop)
-        POP_HL_RS
-        POP_HL_RS
+        ex de,hl
+        ld de,4
+        add ix,de
+        ex de,hl
         NEXT
 
         defcode("LIT",3,0,lit)
-        ld a, (de)
-        ld l, a
-        inc de
-        ld a, (de)
-        ld h, a
-        inc de
         push bc
-        HL_TO_BC
+        ld a, (de)
+        ld c, a
+        inc de
+        ld a, (de)
+        ld b, a
+        inc de
         NEXT
 
         defcode("LITSTR",6,0,litstring)
         ;; String length
-        ld a, (de)
-        ld l, a
-        inc de
-        ld a, (de)
-        ld h, a
-        inc de
-
         push bc ;; old stack top
-        push de ;; push address of string
+        ex de,hl
+        ld c, (hl)
+        inc hl
+        ld b, (hl)
+        inc hl
+        
+        push hl ;; push address of string
         HL_TO_BC ;; BC now contains the string length
 
         ;; Skip the string.
-        add hl, de
+        add hl, bc
         ;; Skip null pointer.  (Even though we have the length, because
         ;; we don't have a bcall Linux that can print out a string with
         ;; a certain length).
@@ -536,15 +527,13 @@ strchr_succ:
         inc bc
         ld a, (bc)
         ld d, a
-        dec bc
         add hl, de
-        ld a, l
-        ld (bc), a
-        inc bc
         ld a, h
         ld (bc), a
-        inc bc
-
+        dec bc
+        ld a, l
+        ld (bc), a
+grosged/ti84-forth
         pop de
         pop bc
         NEXT
@@ -573,7 +562,7 @@ strchr_succ:
         defcode("C!", 2,0, store_byte)
         pop hl
         ld a, l
-        ld (bc), a
+        ld (bc), agrosged/ti84-forth
         pop bc
         NEXT
 
@@ -672,17 +661,16 @@ var_latest:
 
         defcode("]",1,0,rbrac)
         ld hl, var_state
-        ld (hl), 0
+        xor a
+        ld (hl), a
         inc hl
-        ld (hl), 0
+        ld (hl), a
         NEXT
 
         cell_alloc(var_stack_empty,1)
         defcode("?SE", 3, 0, stack_emptyq)
         push bc
-        ld hl, (var_stack_empty)
-        ld b, h
-        ld c, l
+        ld bc, (var_stack_empty)
         NEXT
 
         cell_alloc(var_here,0)
@@ -812,13 +800,10 @@ _c_comma
         defcode("SP@", 3, 0, sp_fetch)
         ;; Since we can't do ld hl, sp
         push bc
-        ld (var_sp), sp
-        ld hl, (var_sp)
+        ld hl, 0
+        add hl, sp
         HL_TO_BC
         NEXT
-
-var_sp:
-        .dw 0
 
         defcode("SP!", 3, 0, sp_store)
         BC_TO_HL
@@ -878,13 +863,13 @@ cpBCDE:
 
         defcode("0BRANCH", 7, 0, zbranch)
         ld a, c
-        cp 0
+        or a
         jp z, zbranch_maybe
-        jp nz, zbranch_fail
+        jp zbranch_fail
 
 zbranch_maybe:
         ld a, b
-        cp 0
+        or a
         jp nz,zbranch_fail
         pop bc
         jp branch
@@ -1652,9 +1637,9 @@ add16to32:
         add a, 1
 add16to32_done:
         ld b, a
+        push ix
+        pop hl
         push bc
-        ld (bit_cache), ix
-        ld hl, (bit_cache)
         HL_TO_BC
         ld ix,(save_ix)
         POP_DE_RS
@@ -2063,7 +2048,7 @@ word_done:
         ld (hl), a
         pop de
         ld hl, word_buffer
-        ld b, 0  ;; c should contain the number of characters.
+        ld b, a  ;; c should contain the number of characters.
         push hl
         NEXT
 
@@ -2074,8 +2059,8 @@ word_done:
         inc bc
         inc bc
         ld a, (bc)
-        bit 7, a
-        jp z, fal
+        rla
+        jp nc, fal
         jp tru
 
         ;; Make the last word immediate
@@ -2175,8 +2160,7 @@ find_retry_cont:
         jp find_loop
 find_maybe_fail:
         ld a, h
-        cp 0 ;; or a
-        jp z, find_fail
+        or a
         jp nz, find_retry_cont
 find_fail:
         pop hl
@@ -2272,18 +2256,17 @@ strcmp_exit:
         inc hl
         inc hl
         ;; Now we have to write the length of the new word.
-        ld a, c
-        ld (hl), a
+        ld (hl), c
         inc hl
 
         ;; LDIR loads the value at (HL) to (DE), increments both,
         ;; decrements BC, loops until BC = 0.
         ex de, hl
         pop hl
-        ld b, 0 ;; sanitize input, maybe?
+        xor a
+        ld b, a ;; sanitize input, maybe?
         ldir
 
-        xor a
         ld (de), a
         inc de
 
