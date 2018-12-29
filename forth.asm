@@ -1638,9 +1638,11 @@ add16to32:
         add a, 1
 add16to32_done:
         ld b, a
-        push bc
         push ix
-        pop bc
+        pop hl
+        push bc
+        ld b,h
+        ld c,l
         ld ix,(save_ix)
         POP_DE_RS
         NEXT
