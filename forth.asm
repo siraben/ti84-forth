@@ -72,13 +72,13 @@
 start:
         .org 9D93h
         .db $BB,$6D
-        b_call _RunIndicOff
-        b_call _ClrLCDFull
-        b_call _HomeUp
+        b_call (_RunIndicOff
+        b_call (_ClrLCDFull
+        b_call (_HomeUp
 
         ;; This b_call pushes to the floating point stack, at memory
         ;; location $9824, below AppBackupScreen at $9872.
-        b_call _PushRealO1
+        b_call (_PushRealO1
 
 
         pop bc ;; Save the place where this program needs to go.
@@ -133,16 +133,16 @@ done:
 
 done_cont:
 
-        b_call _GetKey
-        b_call _ClrScrnFull
-        b_call _PopRealO1
+        b_call (_GetKey
+        b_call (_ClrScrnFull
+        b_call (_PopRealO1
         ;; Even if we blew up the stack during execution, we can try to restore it and exit cleanly.
         ld sp, (save_sp)
         ld hl, (prog_exit)
         jp (hl)
 print_stack_error:
         ld hl, possible_error_msg
-        b_call _PutS
+        b_call (_PutS
         jp done_cont
 possible_error_msg: .db "Warning: Stack not empty or underflowed.",0
 
@@ -459,7 +459,7 @@ _:
         defcode("TELL",4,0,tell)
         pop bc
         BC_TO_HL
-        b_call _PutS
+        b_call (_PutS
         pop bc
         NEXT
 
@@ -958,7 +958,7 @@ printhl_safe:
         push hl
         push af
         push de
-        b_call _DispHL
+        b_call (_DispHL
         pop de
         pop af
         pop hl
@@ -966,8 +966,8 @@ printhl_safe:
 
 
 str_println:
-        b_call _PutS
-        b_call _Newline
+        b_call (_PutS
+        b_call (_Newline
         ret
 
 str_print:
@@ -984,7 +984,7 @@ str_print:
 key_asm:
         push bc
         push de
-        b_call _GetKey
+        b_call (_GetKey
         pop de
         pop bc
         ret
@@ -992,21 +992,21 @@ key_asm:
         ;; Get a key but non-blocking.
         defcode("KEYC", 4, 0, keyc)
         push bc
-        b_call _GetCSC
+        b_call (_GetCSC
         ld c, a
         ld b, 0
         NEXT
 
         defcode("EMIT",4,0,emit)
         ld a, c
-        b_call _PutC
+        b_call (_PutC
         pop bc
         NEXT
 
         defcode("EMITS", 5, 0, emit_small)
         ld a, c
         push de
-        b_call _VPutMap
+        b_call (_VPutMap
         pop de
         pop bc
         NEXT        
@@ -1017,7 +1017,7 @@ key_asm:
         BC_TO_HL
         call printhl_safe
         ld a, ' '
-        b_call _PutC
+        b_call (_PutC
         pop bc
         NEXT
 
@@ -1052,7 +1052,7 @@ key_asm:
 ;; asking for input until a character that is in the table is input.
 akey_asm:
         ;; First portion is copied from key.
-        b_call _GetKey
+        b_call (_GetKey
         ;; a contains the byte received.
         ld h, 0
         ld l , a
@@ -1382,8 +1382,8 @@ sqrt_loop:
         defcode("FRAND",5,0,f_rand)
         push bc
         push de
-        b_call _Random
-        b_call _PushRealO1
+        b_call (_Random
+        b_call (_PushRealO1
         pop de
         pop bc
         NEXT
@@ -1391,12 +1391,12 @@ sqrt_loop:
         defcode("F.",2,0,f_dot)
         push bc
         push de
-        b_call _PopRealO1
+        b_call (_PopRealO1
         ld a, (var_precision)
-        b_call _FormReal
+        b_call (_FormReal
         pop de
         ld hl, $848e
-        b_call _PutS
+        b_call (_PutS
         pop bc
         NEXT
 
@@ -1409,10 +1409,10 @@ sqrt_loop:
         defcode("F*",2,0,f_mult)
         push bc
         push de
-        b_call _PopRealO1
-        b_call _PopRealO2
-        b_call _FPMult
-        b_call _PushOP1
+        b_call (_PopRealO1
+        b_call (_PopRealO2
+        b_call (_FPMult
+        b_call (_PushOP1
         pop de
         pop bc
         NEXT
@@ -1420,9 +1420,9 @@ sqrt_loop:
         defcode("FSQUARE",7,0,f_square)
         push bc
         push de
-        b_call _PopRealO1
-        b_call _FPSquare
-        b_call _PushOP1
+        b_call (_PopRealO1
+        b_call (_FPSquare
+        b_call (_PushOP1
         pop de
         pop bc
         NEXT
@@ -1430,9 +1430,9 @@ sqrt_loop:
         defcode("F=",2,0,f_eql)
         push bc
         push de
-        b_call _PopRealO1
-        b_call _PopRealO2
-        b_call _CpOP1OP2
+        b_call (_PopRealO1
+        b_call (_PopRealO2
+        b_call (_CpOP1OP2
         pop de
         pop bc
         jp z, tru
@@ -1442,9 +1442,9 @@ sqrt_loop:
         defcode("FDUP",4,0,f_dup)
         push bc
         push de
-        b_call _PopRealO1
-        b_call _PushOP1
-        b_call _PushOP1
+        b_call (_PopRealO1
+        b_call (_PushOP1
+        b_call (_PushOP1
         pop de
         pop bc
         NEXT
@@ -1452,7 +1452,7 @@ sqrt_loop:
         defcode("FDROP",5,0,f_drop)
         push bc
         push de
-        b_call _PopRealO1
+        b_call (_PopRealO1
         pop de
         pop bc
         NEXT
@@ -1460,10 +1460,10 @@ sqrt_loop:
         defcode("FSWAP",5,0,f_swap)
         push bc
         push de
-        b_call _PopRealO1
-        b_call _PopRealO2
-        b_call _PushRealO1
-        b_call _PushRealO2
+        b_call (_PopRealO1
+        b_call (_PopRealO2
+        b_call (_PushRealO1
+        b_call (_PushRealO2
         pop de
         pop bc
         NEXT
@@ -1471,10 +1471,10 @@ sqrt_loop:
         defcode("F+",2,0,f_add)
         push bc
         push de
-        b_call _PopRealO1
-        b_call _PopRealO2
-        b_call _FPAdd
-        b_call _PushOP1
+        b_call (_PopRealO1
+        b_call (_PopRealO2
+        b_call (_FPAdd
+        b_call (_PushOP1
         pop de
         pop bc
         NEXT
@@ -1482,10 +1482,10 @@ sqrt_loop:
         defcode("F/",2,0,f_div)
         push bc
         push de
-        b_call _PopRealO2
-        b_call _PopRealO1
-        b_call _FPDiv
-        b_call _PushOP1
+        b_call (_PopRealO2
+        b_call (_PopRealO1
+        b_call (_FPDiv
+        b_call (_PushOP1
         pop de
         pop bc
         NEXT
@@ -1494,9 +1494,9 @@ sqrt_loop:
         defcode("FRCI",4,0,f_recip)
         push bc
         push de
-        b_call _PopRealO1
-        b_call _FPRecip
-        b_call _PushOP1
+        b_call (_PopRealO1
+        b_call (_FPRecip
+        b_call (_PushOP1
         pop de
         pop bc
         NEXT
@@ -1504,10 +1504,10 @@ sqrt_loop:
         defcode("F-",2,0,f_sub)
         push bc
         push de
-        b_call _PopRealO2
-        b_call _PopRealO1
-        b_call _FPSub
-        b_call _PushOP1
+        b_call (_PopRealO2
+        b_call (_PopRealO1
+        b_call (_FPSub
+        b_call (_PushOP1
         pop de
         pop bc
         NEXT
@@ -1515,24 +1515,24 @@ sqrt_loop:
         defcode("FSQRT",5,0,f_sqrt)
         push bc
         push de
-        b_call _PopRealO1
-        b_call _SqRoot
-        b_call _PushOP1
+        b_call (_PopRealO1
+        b_call (_SqRoot
+        b_call (_PushOP1
         pop de
         pop bc
         NEXT
 
         ;; ( addr len -- hash_addr )
         defcode("MD5",3,0,md_five)
-        b_call $808d  ;; md5init
+        b_call ($808d  ;; md5init
         pop hl
         push de
         push ix
-        b_call $8090 ;; md5update
-        b_call $8090 ;; md5update
-        b_call $8090 ;; md5update
-        b_call $8090 ;; md5update
-        b_call $8018 ;; md5final
+        b_call ($8090 ;; md5update
+        b_call ($8090 ;; md5update
+        b_call ($8090 ;; md5update
+        b_call ($8090 ;; md5update
+        b_call ($8018 ;; md5final
         ld bc, $8292
         pop ix
         pop de
@@ -1639,9 +1639,8 @@ add16to32:
 add16to32_done:
         ld b, a
         push bc
-        ld (bit_cache), ix
-        ld hl, (bit_cache)
-        HL_TO_BC
+        push ix
+        pop bc
         ld ix,(save_ix)
         POP_DE_RS
         NEXT
@@ -1692,11 +1691,11 @@ mul32by8_noAdd:
 
         defcode("SPACE",5,0,space)
         ld a, ' '
-        b_call _PutC
+        b_call (_PutC
         NEXT
 
         defcode("CR",2,0,cr)
-        b_call _Newline
+        b_call (_Newline
         NEXT
 
         defcode("AT-XY",5,0,at_xy)
@@ -1722,14 +1721,14 @@ mul32by8_noAdd:
 
         defcode("PUTS",4,0,putstr)
         BC_TO_HL
-        b_call _PutS
+        b_call (_PutS
         pop bc
         NEXT
 
         defcode("PUTLN",5,0,putstrln)
         BC_TO_HL
-        b_call _PutS
-        b_call _NewLine
+        b_call (_PutS
+        b_call (_NewLine
         pop bc
         NEXT
 
@@ -1773,7 +1772,7 @@ key_loop:
         push hl
         push de
         push bc
-        b_call _GetKey
+        b_call (_GetKey
         pop bc
         pop de
         pop hl
@@ -1785,7 +1784,7 @@ key_loop:
         ;; without entering anything, we need to check for that too.
 
         ;; We should echo enter.
-        b_call _NewLine
+        b_call (_NewLine
 
         ld a, b
         or a
@@ -1837,7 +1836,7 @@ not_backup_line:
         dec de
         dec b
         ld a, ' '
-        b_call _PutMap
+        b_call (_PutMap
         jp key_loop
 
 not_del:
@@ -1868,7 +1867,7 @@ not_del:
         ld a, ' '
 
 clear_loop:
-        b_call _PutC
+        b_call (_PutC
         djnz clear_loop
 
         ld (hl), b
@@ -1908,7 +1907,7 @@ not_clear:
 write_space:
         ld a, ' '
 write_char:
-        b_call _PutC
+        b_call (_PutC
         ld (de), a
         inc de
         inc b
@@ -1950,7 +1949,7 @@ unget_char:
         push hl
         push de
         ld hl, (gets_ptr)
-        ;; b_call _CpHLDE
+        ;; b_call (_CpHLDE
         ;; scf
         ;; jr z, unget_char_done
         dec hl
@@ -2202,9 +2201,9 @@ strcmp_exit:
         defcode("WB",2,0,writeback)
         push bc
         push de
-        b_call _PopRealO1 ;; from the floating point stack
-        b_call _PushRealO1
-        b_call _ChkFindSym
+        b_call (_PopRealO1 ;; from the floating point stack
+        b_call (_PushRealO1
+        b_call (_ChkFindSym
 
         ld    hl, data_start - $9D95 + 4    ; have to add 4 because of tasmcmp token
                                             ; (2 bytes) and for size bytes (2 bytes)
@@ -2390,7 +2389,7 @@ dodoes:
         xor a
         ld (currow), a
         ld (curcol), a
-        b_call _ClrScrnFull
+        b_call (_ClrScrnFull
         pop de
         pop bc
         NEXT
@@ -2707,10 +2706,10 @@ scr_name: .db "SCRATCH",0
 
         push ix
         ld hl, blk_name_buffer
-        b_call _Mov9ToOP1
+        b_call (_Mov9ToOP1
         ;; Allocate 255 bytes (default block size, change later if needed)
         ld hl, 1024
-        b_call _CreateProg
+        b_call (_CreateProg
         pop ix
         ;; DE contains the start of the memory location.
         ld b, d
@@ -2743,10 +2742,10 @@ blk_name_buffer: .fill 9, 0
 
         push ix
         ld hl, blk_name_buffer
-        b_call _Mov9ToOP1
+        b_call (_Mov9ToOP1
         ;; Allocate 255 bytes (default block size, change later if needed)
         ld hl, 255
-        b_call _CreateProg
+        b_call (_CreateProg
         pop ix
         ;; DE contains the start of the memory location.
         ld b, d
@@ -2775,8 +2774,8 @@ blk_name_buffer: .fill 9, 0
 
         push ix
         ld hl, blk_name_buffer
-        b_call _Mov9ToOP1
-        b_call _ChkFindSym
+        b_call (_Mov9ToOP1
+        b_call (_ChkFindSym
         pop ix
         jp c, fblk_fail
         ld b, d
@@ -2852,7 +2851,7 @@ FreqOutDone:
         defcode("PLOT",4,0,plot)
         push bc
         push de
-        b_call _GrBufCpy
+        b_call (_GrBufCpy
         pop de
         pop bc
         NEXT
@@ -2870,8 +2869,8 @@ FreqOutDone:
 
         defcode("TELLS", 5, 0, tell_small)
         BC_TO_HL
-        b_call _VPutS
-        b_call _NewLine
+        b_call (_VPutS
+        b_call (_NewLine
         pop bc
         NEXT
 
