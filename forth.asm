@@ -562,7 +562,7 @@ grosged/ti84-forth
         defcode("C!", 2,0, store_byte)
         pop hl
         ld a, l
-        ld (bc), agrosged/ti84-forth
+        ld (bc), a
         pop bc
         NEXT
 
