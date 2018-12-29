@@ -2161,7 +2161,8 @@ find_retry_cont:
 find_maybe_fail:
         ld a, h
         or a
-        jp nz, find_retry_cont
+        jp z, find_fail
+        jp find_retry_cont
 find_fail:
         pop hl
         pop de
