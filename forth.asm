@@ -2882,7 +2882,7 @@ FreqOutDone:
 
 setup_data_segment:
         ld de, here_start
-        ld hl, var_herePUSH_DE_RS
+        ld hl, var_here
         ld (save_sp), sp
         ld (var_sz), sp
         ld (hl), e
