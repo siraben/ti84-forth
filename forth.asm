@@ -1085,7 +1085,7 @@ akey_return_space:
 
 key_table:
 .db "     ",$00,"  " ;; 0   - 7
-.db "        "       ;; 8PUSH_DE_RS   - 15
+.db "        "       ;; 8   - 15
 .db "        "       ;; 16  - 23
 .db "        "       ;; 24  - 31
 .db "        "       ;; 32  - 39
