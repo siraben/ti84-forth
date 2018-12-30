@@ -146,6 +146,7 @@ print_stack_error:
         jp done_cont
 possible_error_msg: .db "Warning: Stack not empty or underflowed.",0
 
+tmpStr16 .dw 0  ; this area will temporarely store a 16bit register (faster than using the Return Stack)
 
 #macro defcode(name,len,flags,label)
   ;; This is the first word to be defined, so set the link.
@@ -326,7 +327,7 @@ _:
         ;; Register contents (return stack contents)
         ;; a b c d => c d a b
         defcode("2SWAP",5,0,two_swap)
-        PUSH_DE_RS
+        ld (tmpStr16),de ; = 20 cycles instead of 58 when PUSH_DE_RS temporarily
         pop hl
         ld d,b
         ld e,c
@@ -334,7 +335,7 @@ _:
         ex (sp),hl
         push de
         push hl
-        POP_DE_RS
+        ld de,(tmpStr16) ; = 20 cycles instead of 58 when POP_DE_RS temporarily
         NEXT
 
 ;; TODO: 2NIP, 2TUCK, 2ROT, 2OVER
@@ -533,7 +534,6 @@ strchr_succ:
         dec bc
         ld a, l
         ld (bc), a
-grosged/ti84-forth
         pop de
         pop bc
         NEXT
@@ -583,12 +583,11 @@ grosged/ti84-forth
 
         defcode("CMOVE",5,0,cmove)
         ;; ( source destination amount -- )
-        PUSH_DE_RS
-        pop de
         pop hl
+        ex de,hl
+        ex (sp),hl
         ldir
-        POP_DE_RS
-        pop bc
+        pop de
         NEXT
 
         ;; BC points to a codeword, execute it!
@@ -1086,7 +1085,7 @@ akey_return_space:
 
 key_table:
 .db "     ",$00,"  " ;; 0   - 7
-.db "        "       ;; 8   - 15
+.db "        "       ;; 8PUSH_DE_RS   - 15
 .db "        "       ;; 16  - 23
 .db "        "       ;; 24  - 31
 .db "        "       ;; 32  - 39
@@ -1171,16 +1170,16 @@ mul16By16:
         ret
 
         defcode("*",1,0,mult)
-        PUSH_DE_RS
+        ld (tmpStr16),de
         pop de ;; get the second element from the stack
         call mul16by16
         HL_TO_BC
-        POP_DE_RS
+        ld  de,(tmpStr16)
         NEXT
 
         ;; ( a b -- remainder quotient )
         defcode("/MOD", 4, 0, divmod)
-        PUSH_DE_RS
+        ld (tmpStr16),de
         ld d, b
         ld e, c
         pop bc
@@ -1303,7 +1302,7 @@ divACbyDE:
         ld b, a
         ;; Remainder, then quotient.
         push hl
-        POP_DE_RS
+        ld de,(tmpStr16)
         NEXT
 
         ;; ( n^2 -- n )
@@ -1541,7 +1540,7 @@ sqrt_loop:
         ;; Convention for this Forth:  ( high low -- )
         ;; ( high low divisor -- remainder quotient_high quotient_low )
         defcode("D/MOD",5,0,double_divmod)
-        PUSH_DE_RS
+        ld (tmpStr16),de
         ld (save_ix), ix
         BC_TO_DE ;; get the divisor
         pop ix ;; get the low part
@@ -1560,7 +1559,7 @@ sqrt_loop:
         ;; Now it contains the low quotient
 
         ld ix, (save_ix)
-        POP_DE_RS
+        ld de,(tmpStr16)
         NEXT
 
 ;; From KnightOS kernel
@@ -1594,12 +1593,12 @@ dd_setBit:
 
         ;; ( n1 n2 -- high_mult low_mult )
         defcode("UM*",3,0,um_star)
-        PUSH_DE_RS
+        ld (tmpStr16),de
         pop de ;; get the second element from the stack
         call mul16by16
         HL_TO_BC
         push de ;; push high part onto stack.
-        POP_DE_RS
+        ld de,(tmpStr16)
         NEXT
 
         defcode("D+",2,0,double_add)
@@ -1652,7 +1651,7 @@ add16to32_done:
         ;; ( 32bit_high 32bit_low 8bit -- 32*8high 32*8 low )
         defcode("DS", 2, 0, double_scale)
 mul32By8:
-        PUSH_DE_RS
+        ld (tmpStr16),de
         ld a, c
         pop hl
         pop de
@@ -1686,7 +1685,7 @@ mul32by8_noAdd:
         pop ix \ pop bc
         push de
         HL_TO_BC
-        POP_DE_RS
+        ld de,(tmpStr16)
         NEXT
 
         defcode("SPACE",5,0,space)
@@ -2239,7 +2238,7 @@ strcmp_exit:
         defcode("CREATE",6,0,create) ;; ( name length -- )
         ;; Create link pointer and update var_latest to point to it.
         ld hl, (var_here)
-        PUSH_DE_RS
+        ld (tmpStr16),de
         ld de, (var_latest)
         ld (hl), e
         inc hl
@@ -2276,7 +2275,7 @@ strcmp_exit:
         inc hl
         ld (hl), d
 
-        POP_DE_RS
+        ld de,(tmpStr16)
         pop bc
         NEXT
 
@@ -2883,7 +2882,7 @@ FreqOutDone:
 
 setup_data_segment:
         ld de, here_start
-        ld hl, var_here
+        ld hl, var_herePUSH_DE_RS
         ld (save_sp), sp
         ld (var_sz), sp
         ld (hl), e
