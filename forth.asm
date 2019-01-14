@@ -347,7 +347,21 @@ _:
         POP_DE_RS
         NEXT
 
-;; TODO: 2NIP, 2TUCK, 2ROT, 2OVER
+        defcode("2OVER",5,0,two_over)
+        push bc
+        pop bc
+        pop hl
+        pop bc
+        pop hl
+        push hl
+        push bc
+        dec sp
+        dec sp
+        dec sp
+        dec sp
+        push hl
+        NEXT
+;; TODO: 2NIP, 2TUCK, 2ROT
 
         defcode("1+", 2, 0, one_plus)
         inc bc
@@ -381,11 +395,8 @@ _:
 
         defcode("R@", 2, 0, r_fetch)
         push bc
-        POP_HL_RS
-        PUSH_HL_RS
-        ld c, (hl)
-        inc hl
-        ld b, (hl)
+        ld c, (ix + 0)
+        ld b, (ix + 1)
         NEXT
 
         defcode("2>R", 3, 0, two_to_r)
@@ -446,19 +457,12 @@ _:
         NEXT
 
         defword("SQ",2,128,s_quote)
-        .dw state, fetch, zbranch, 54, here, fetch, get_char_forth, dup, lit, 34
-        .dw neql, zbranch, 12, over, store_byte, one_plus, branch, 65514, drop
-        .dw over, zero, store_byte, here, fetch, sub, here, fetch, swap, branch, 60
-        .dw tick, litstring, comma, here, fetch, zero, comma, get_char_forth, dup
-        .dw lit, 34, neql, zbranch, 8, c_comma, branch, 65518, drop, zero, c_comma
-        .dw dup, here, fetch, swap, sub, three, sub, swap, store, exit
+        .dw state, fetch, zbranch, 66, tick, litstring, comma, here, lit, 0
+        .dw comma, getc, dup, lit, 34, neql, zbranch 8, c_comma, branch, 65518, drop
+        .dw lit, 0, c_comma, dup, here, swap, sub, lit, 3, sub, swap, store, branch, 38
+        .dw here, getc, dup, lit, 34, zbranch, 12, over, store_byte, one_plus, branch, 65514
+        .dw drop, here, sub, here, swap, exit
 
-        .dw state, fetch, not, zbranch, 64, tick, litstring, comma, here, fetch
-        .dw zero, comma, get_char_forth, dup, lit, 34, neql, zbranch, eight, c_comma
-        .dw branch, 65518, drop, zero, c_comma, dup, here, fetch, swap, sub, three, sub
-        .dw swap, store, branch, 44, here, fetch, get_char_forth, dup, lit, 34, neql, zbranch
-        .dw 12, over, store_byte, one_plus, branch, 65514, drop, here, fetch, sub, here
-        .dw fetch, swap, exit
 
         defword(".Q",2,128,dot_quote)
         .dw state, fetch, zbranch, 30, get_char_forth, dup, lit, 34, eql
@@ -2554,26 +2558,26 @@ dodoes:
         .dw zeroc, ninec, within, exit
 
         defword("NUM",3,128,num)
-        .dw zero, get_char_forth, dup, numq, not, zbranch, 30, drop, state, fetch, zbranch, 6
+        .dw lit, 0, get_char_forth, dup, numq, not, zbranch, 30, drop, state, fetch, zbranch, 6
         .dw branch, 10, tick, lit, comma, comma, exit, branch, 14, zeroc, sub
         .dw swap, ten, mult, add, branch, -54, exit
 
         defword("CFA>",4,0, cfa_to)
         .dw latest, fetch, qdup, zbranch, 22, two_dup, swap
-        .dw less_than, zbranch, 6, nip, exit, fetch, branch, -24, drop, zero, exit
+        .dw less_than, zbranch, 6, nip, exit, fetch, branch, -24, drop, lit, 0, exit
 
         defword("PICK",4,0,pick)
         .dw one_plus, left_shift, sp_fetch, add, fetch, exit
 
         defword("U.",2,0,u_dot_)
-        .dw base, fetch, divmod, qdup, zbranch, 4, u_dot_, dup, ten, less_than, zbranch, 10
-        .dw lit, 48, branch, 10, ten, sub, lit, 65, add, emit, exit
+        .dw base, fetch, divmod, qdup, zbranch, 4, u_dot_, dup, lit, 10, less_than
+        .dw zbranch, 10, lit, 48, branch, 12, lit, 10, sub, lit, 65, add, emit, exit
 
         defword("UWIDTH",6,0,u_width)
-        .dw base, fetch, div, qdup, zbranch, 10, u_width, one_plus, branch, 4, one, exit
+        .dw base, fetch, div, qdup, zbranch, 10, u_width, one_plus, branch, 6, lit, 1, exit
 
         defword("SPACES",6,0,spaces)
-        .dw zero, to_r, to_r, space, from_r, from_r, one_plus, two_dup, eql, zbranch, 65518
+        .dw lit, 0, to_r, to_r, space, from_r, from_r, one_plus, two_dup, eql, zbranch, 65518
         .dw two_drop, exit
 
         defword("U.R",3,0,u_dot_r)
@@ -2590,8 +2594,8 @@ dodoes:
 
         defword(".S",2,0,print_stack)
         .dw lit, '<', emit, depth, u_dot_, lit, '>', emit, space
-        .dw sp_fetch, dup, sz, fetch, less_than, zbranch, 16, dup, fetch, u_dot
-        .dw two, add, branch, 65512, drop, exit
+        .dw sp_fetch, dup, sz, fetch, less_than, zbranch, 18, dup, fetch, u_dot
+        .dw lit, 2, add, branch, 65510, drop, exit
 
         defword("HEX",3,0,hex)
         .dw lit, 16, base, store, exit
@@ -2646,7 +2650,7 @@ dodoes:
         .dw dup, id_dot, space, fetch, branch, -38, cr, drop, exit
 
         defword("CASE",4,128,case)
-        .dw zero, exit
+        .dw lit, 0, exit
 
         defword("OF", 2, 128, of)
         .dw tick, over, comma, tick, eql, comma, if, tick, drop, comma, exit
