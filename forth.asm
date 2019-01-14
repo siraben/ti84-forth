@@ -530,22 +530,13 @@ strchr_succ:
         ;; ( n addr -- )
         defcode("+!",2,0,add_store)
         pop hl
-        push de
-        ld a, (bc)
-        ld e, a
-        inc bc
-        ld a, (bc)
-        ld d, a
-        dec bc
-        add hl, de
-        ld a, l
+        ld a, bc
+        add a, l
         ld (bc), a
         inc bc
-        ld a, h
+        ld a, (bc)
+        adc a h
         ld (bc), a
-        inc bc
-
-        pop de
         pop bc
         NEXT
 
@@ -568,6 +559,7 @@ strchr_succ:
         ld a, h
         ld (bc), a
         pop de
+        pop bc
         NEXT
 
         defcode("C!", 2,0, store_byte)
@@ -810,15 +802,11 @@ _c_comma
         ret
 
         defcode("SP@", 3, 0, sp_fetch)
-        ;; Since we can't do ld hl, sp
         push bc
-        ld (var_sp), sp
-        ld hl, (var_sp)
+        ld hl, 0
+        add hl, sp
         HL_TO_BC
         NEXT
-
-var_sp:
-        .dw 0
 
         defcode("SP!", 3, 0, sp_store)
         BC_TO_HL
@@ -828,11 +816,15 @@ var_sp:
 
 
         defcode("RP@",3,0,rp_fetch)
+        push bc
         push ix
+        pop bc
         NEXT
 
         defcode("RP!",3,0,rp_store)
+        push bc
         pop ix
+        pop bc
         NEXT
 
         defcode("BRANCH", 6, 0, branch)
