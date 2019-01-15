@@ -458,7 +458,7 @@ _:
 
         defword("SQ",2,128,s_quote)
         .dw state, fetch, zbranch, 66, tick, litstring, comma, here, lit, 0
-        .dw comma, getc, dup, lit, 34, neql, zbranch 8, c_comma, branch, 65518, drop
+        .dw comma, getc, dup, lit, 34, neql, zbranch, 8, c_comma, branch, 65518, drop
         .dw lit, 0, c_comma, dup, here, swap, sub, lit, 3, sub, swap, store, branch, 38
         .dw here, getc, dup, lit, 34, zbranch, 12, over, store_byte, one_plus, branch, 65514
         .dw drop, here, sub, here, swap, exit
@@ -534,12 +534,12 @@ strchr_succ:
         ;; ( n addr -- )
         defcode("+!",2,0,add_store)
         pop hl
-        ld a, bc
+        ld a, (bc)
         add a, l
         ld (bc), a
         inc bc
         ld a, (bc)
-        adc a h
+        adc a, h
         ld (bc), a
         pop bc
         NEXT
@@ -1649,9 +1649,8 @@ add16to32:
 add16to32_done:
         ld b, a
         push bc
-        ld (bit_cache), ix
-        ld hl, (bit_cache)
-        HL_TO_BC
+        push ix
+        pop bc
         ld ix,(save_ix)
         POP_DE_RS
         NEXT
