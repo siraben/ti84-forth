@@ -65,6 +65,9 @@
 ;; DE = IP    IY = UP
 ;; HL = W     SP = PSP
 
+;; NEXT, the basis of many Forth CODE words.
+;; Defined as a jump to reduce code size.
+#define NEXT jp next_sub
 
 #include "inc/ti83plus.inc"
 
@@ -80,7 +83,6 @@ start:
         ;; location $9824, below AppBackupScreen at $9872.
         b_call _PushRealO1
 
-
         pop bc ;; Save the place where this program needs to go.
         ld hl, prog_exit
         ld (hl), c
@@ -88,9 +90,9 @@ start:
         ld (hl), b
         push bc
 
-        ;; For some weird reason, either the spasm-ng assembler or
-        ;; TI-84 can't store the string "[", so we have to fix it by
-        ;; changing the value of rbrac's string.
+        ;; For some weird reason, either the spasm-ng assembler can't
+        ;; store the string "[", so we have to fix it by changing the
+        ;; value of rbrac's string.
 
         ld hl, name_lbrac+3
         ld (hl), 193
@@ -100,15 +102,20 @@ start:
         ld (name_s_quote+4), a
         ld (name_dot_quote+4), a
 
-;; NEXT, the basis of many Forth CODE words.
-;; Defined as a jump to reduce code size.
-#define NEXT jp next_sub
+        ;; Setup data segment
+        ld de, here_start
+        ld hl, var_here
+        ld (save_sp), sp
+        ld (var_sz), sp
+        ld (hl), e
+        inc hl
+        ld (hl), d
+        ld ix, return_stack_top
 
-
-        call setup_data_segment
         ld bc, 9999
-        ld de, prog
+        ld de, interpret_loop
         NEXT
+
 docol:
         PUSH_DE_RS
         pop de
@@ -132,7 +139,6 @@ done:
         jp nz, print_stack_error
 
 done_cont:
-
         b_call _GetKey
         b_call _ClrScrnFull
         b_call _PopRealO1
@@ -458,7 +464,7 @@ _:
 
         defword("SQ",2,128,s_quote)
         .dw state, fetch, zbranch, 66, tick, litstring, comma, here, lit, 0
-        .dw comma, getc, dup, lit, 34, neql, zbranch 8, c_comma, branch, 65518, drop
+        .dw comma, getc, dup, lit, 34, neql, zbranch, 8, c_comma, branch, 65518, drop
         .dw lit, 0, c_comma, dup, here, swap, sub, lit, 3, sub, swap, store, branch, 38
         .dw here, getc, dup, lit, 34, zbranch, 12, over, store_byte, one_plus, branch, 65514
         .dw drop, here, sub, here, swap, exit
@@ -534,12 +540,12 @@ strchr_succ:
         ;; ( n addr -- )
         defcode("+!",2,0,add_store)
         pop hl
-        ld a, bc
+        ld a, (bc)
         add a, l
         ld (bc), a
         inc bc
         ld a, (bc)
-        adc a h
+        adc a, h
         ld (bc), a
         pop bc
         NEXT
@@ -687,6 +693,12 @@ var_latest:
         ld bc, var_here
         NEXT
 
+        cell_alloc(var_num_status,0)
+        defcode("NUMST", 5, 0, num_status)
+        push bc
+        ld bc, var_num_status
+        NEXT
+
 
         ;; Here are some constants.
         defcode("DOCOL", 5, 0, __docol)
@@ -706,10 +718,6 @@ var_latest:
         NEXT
 
         defcode("WBUF", 4, 0, __word_buffer)
-        PSP_PUSH(word_buffer)
-        NEXT
-
-        defcode("WBUFSZ", 6, 0, __word_buffer_size)
         PSP_PUSH(word_buffer)
         NEXT
 
@@ -871,6 +879,34 @@ cpBCDE:
         sbc hl, de
         pop hl
         ret
+
+        defcode("JUMP", 4, 0, jump)
+        ld a, (de)
+        ld l, a
+        inc de
+        ld a, (de)
+        ld h, a
+        HL_TO_DE
+        NEXT
+
+        defcode("0JUMP", 5, 0, zjump)
+        xor a
+        cp c
+        jp z, zjump_maybe
+        jp nz, zjump_fail
+
+zjump_maybe:
+        xor a
+        cp b
+        jp nz, zjump_fail
+        pop bc
+        jp jump
+
+zjump_fail:
+        inc de
+        inc de
+        pop bc
+        NEXT
 
         defcode("0BRANCH", 7, 0, zbranch)
         ld a, c
@@ -1354,199 +1390,165 @@ sqrt_loop:
         pop de
         NEXT
 
-        ;; Ad-hoc solution to read a number.
 
-        defword("0",1,0,zero)
-        .dw lit, 0, exit
+        ;; defcode("FRAND",5,0,f_rand)
+        ;; push bc
+        ;; push de
+        ;; b_call _Random
+        ;; b_call _PushRealO1
+        ;; pop de
+        ;; pop bc
+        ;; NEXT
 
-        defword("1",1,0,one)
-        .dw lit, 1, exit
+        ;; defcode("F.",2,0,f_dot)
+        ;; push bc
+        ;; push de
+        ;; b_call _PopRealO1
+        ;; ld a, (var_precision)
+        ;; b_call _FormReal
+        ;; pop de
+        ;; ld hl, $848e
+        ;; b_call _PutS
+        ;; pop bc
+        ;; NEXT
 
-        defword("2",1,0,two)
-        .dw lit, 2, exit
+        ;; ;; Read a floating point number.
+        ;; ;; Parameter stack :     ( addr len -- )
+        ;; ;; Floating point stack: ( -- f )
+        ;; defcode("FREAD",5,0,f_read)
+        ;; NEXT
 
-        defword("3",1,0,three)
-        .dw lit, 3, exit
+        ;; defcode("F*",2,0,f_mult)
+        ;; push bc
+        ;; push de
+        ;; b_call _PopRealO1
+        ;; b_call _PopRealO2
+        ;; b_call _FPMult
+        ;; b_call _PushOP1
+        ;; pop de
+        ;; pop bc
+        ;; NEXT
 
-        defword("4",1,0,four)
-        .dw lit, 4, exit
+        ;; defcode("FSQUARE",7,0,f_square)
+        ;; push bc
+        ;; push de
+        ;; b_call _PopRealO1
+        ;; b_call _FPSquare
+        ;; b_call _PushOP1
+        ;; pop de
+        ;; pop bc
+        ;; NEXT
 
-        defword("5",1,0,five)
-        .dw lit, 5, exit
-
-        defword("6",1,0,six)
-        .dw lit, 6, exit
-
-        defword("7",1,0,seven)
-        .dw lit, 7, exit
-
-        defword("8",1,0,eight)
-        .dw lit, 8, exit
-
-        defword("9",1,0,nine)
-        .dw lit, 9, exit
-
-        defword("10",2,0,ten)
-        .dw lit, 10, exit
-
-        defcode("FRAND",5,0,f_rand)
-        push bc
-        push de
-        b_call _Random
-        b_call _PushRealO1
-        pop de
-        pop bc
-        NEXT
-
-        defcode("F.",2,0,f_dot)
-        push bc
-        push de
-        b_call _PopRealO1
-        ld a, (var_precision)
-        b_call _FormReal
-        pop de
-        ld hl, $848e
-        b_call _PutS
-        pop bc
-        NEXT
-
-        ;; Read a floating point number.
-        ;; Parameter stack :     ( addr len -- )
-        ;; Floating point stack: ( -- f )
-        defcode("FREAD",5,0,f_read)
-        NEXT
-
-        defcode("F*",2,0,f_mult)
-        push bc
-        push de
-        b_call _PopRealO1
-        b_call _PopRealO2
-        b_call _FPMult
-        b_call _PushOP1
-        pop de
-        pop bc
-        NEXT
-
-        defcode("FSQUARE",7,0,f_square)
-        push bc
-        push de
-        b_call _PopRealO1
-        b_call _FPSquare
-        b_call _PushOP1
-        pop de
-        pop bc
-        NEXT
-
-        defcode("F=",2,0,f_eql)
-        push bc
-        push de
-        b_call _PopRealO1
-        b_call _PopRealO2
-        b_call _CpOP1OP2
-        pop de
-        pop bc
-        jp z, tru
-        jp fal
+        ;; defcode("F=",2,0,f_eql)
+        ;; push bc
+        ;; push de
+        ;; b_call _PopRealO1
+        ;; b_call _PopRealO2
+        ;; b_call _CpOP1OP2
+        ;; pop de
+        ;; pop bc
+        ;; jp z, tru
+        ;; jp fal
 
 
-        defcode("FDUP",4,0,f_dup)
-        push bc
-        push de
-        b_call _PopRealO1
-        b_call _PushOP1
-        b_call _PushOP1
-        pop de
-        pop bc
-        NEXT
+        ;; defcode("FDUP",4,0,f_dup)
+        ;; push bc
+        ;; push de
+        ;; b_call _PopRealO1
+        ;; b_call _PushOP1
+        ;; b_call _PushOP1
+        ;; pop de
+        ;; pop bc
+        ;; NEXT
 
-        defcode("FDROP",5,0,f_drop)
-        push bc
-        push de
-        b_call _PopRealO1
-        pop de
-        pop bc
-        NEXT
+        ;; defcode("FDROP",5,0,f_drop)
+        ;; push bc
+        ;; push de
+        ;; b_call _PopRealO1
+        ;; pop de
+        ;; pop bc
+        ;; NEXT
 
-        defcode("FSWAP",5,0,f_swap)
-        push bc
-        push de
-        b_call _PopRealO1
-        b_call _PopRealO2
-        b_call _PushRealO1
-        b_call _PushRealO2
-        pop de
-        pop bc
-        NEXT
+        ;; defcode("FSWAP",5,0,f_swap)
+        ;; push bc
+        ;; push de
+        ;; b_call _PopRealO1
+        ;; b_call _PopRealO2
+        ;; b_call _PushRealO1
+        ;; b_call _PushRealO2
+        ;; pop de
+        ;; pop bc
+        ;; NEXT
 
-        defcode("F+",2,0,f_add)
-        push bc
-        push de
-        b_call _PopRealO1
-        b_call _PopRealO2
-        b_call _FPAdd
-        b_call _PushOP1
-        pop de
-        pop bc
-        NEXT
+        ;; defcode("F+",2,0,f_add)
+        ;; push bc
+        ;; push de
+        ;; b_call _PopRealO1
+        ;; b_call _PopRealO2
+        ;; b_call _FPAdd
+        ;; b_call _PushOP1
+        ;; pop de
+        ;; pop bc
+        ;; NEXT
 
-        defcode("F/",2,0,f_div)
-        push bc
-        push de
-        b_call _PopRealO2
-        b_call _PopRealO1
-        b_call _FPDiv
-        b_call _PushOP1
-        pop de
-        pop bc
-        NEXT
+        ;; defcode("F/",2,0,f_div)
+        ;; push bc
+        ;; push de
+        ;; b_call _PopRealO2
+        ;; b_call _PopRealO1
+        ;; b_call _FPDiv
+        ;; b_call _PushOP1
+        ;; pop de
+        ;; pop bc
+        ;; NEXT
 
 
-        defcode("FRCI",4,0,f_recip)
-        push bc
-        push de
-        b_call _PopRealO1
-        b_call _FPRecip
-        b_call _PushOP1
-        pop de
-        pop bc
-        NEXT
+        ;; defcode("FRCI",4,0,f_recip)
+        ;; push bc
+        ;; push de
+        ;; b_call _PopRealO1
+        ;; b_call _FPRecip
+        ;; b_call _PushOP1
+        ;; pop de
+        ;; pop bc
+        ;; NEXT
 
-        defcode("F-",2,0,f_sub)
-        push bc
-        push de
-        b_call _PopRealO2
-        b_call _PopRealO1
-        b_call _FPSub
-        b_call _PushOP1
-        pop de
-        pop bc
-        NEXT
+        ;; defcode("F-",2,0,f_sub)
+        ;; push bc
+        ;; push de
+        ;; b_call _PopRealO2
+        ;; b_call _PopRealO1
+        ;; b_call _FPSub
+        ;; b_call _PushOP1
+        ;; pop de
+        ;; pop bc
+        ;; NEXT
 
-        defcode("FSQRT",5,0,f_sqrt)
-        push bc
-        push de
-        b_call _PopRealO1
-        b_call _SqRoot
-        b_call _PushOP1
-        pop de
-        pop bc
-        NEXT
+        ;; defcode("FSQRT",5,0,f_sqrt)
+        ;; push bc
+        ;; push de
+        ;; b_call _PopRealO1
+        ;; b_call _SqRoot
+        ;; b_call _PushOP1
+        ;; pop de
+        ;; pop bc
+        ;; NEXT
 
-        ;; ( addr len -- hash_addr )
-        defcode("MD5",3,0,md_five)
-        b_call $808d  ;; md5init
-        pop hl
-        push de
-        push ix
-        b_call $8090 ;; md5update
-        b_call $8090 ;; md5update
-        b_call $8090 ;; md5update
-        b_call $8090 ;; md5update
-        b_call $8018 ;; md5final
-        ld bc, $8292
-        pop ix
-        pop de
-        NEXT
+        ;; ;; ( addr len -- hash_addr )
+        ;; defcode("MD5",3,0,md_five)
+        ;; b_call $808d  ;; md5init
+        ;; pop hl
+        ;; push de
+        ;; push ix
+        ;; b_call $8090 ;; md5update
+        ;; b_call $8090 ;; md5update
+        ;; b_call $8090 ;; md5update
+        ;; b_call $8090 ;; md5update
+        ;; b_call $8018 ;; md5final
+        ;; ld bc, $8292
+        ;; pop ix
+        ;; pop de
+        ;; NEXT
 
         ;; Double length number routines.
         ;; Convention for this Forth:  ( high low -- )
@@ -1649,9 +1651,8 @@ add16to32:
 add16to32_done:
         ld b, a
         push bc
-        ld (bit_cache), ix
-        ld hl, (bit_cache)
-        HL_TO_BC
+        push ix
+        pop bc
         ld ix,(save_ix)
         POP_DE_RS
         NEXT
@@ -1751,9 +1752,9 @@ mul32by8_noAdd:
 ;; gets_ptr points to the start of the buffer
 
 ;; We also want immediate feedback to the user.
-#define STRING_BUFFER_SIZE 128
+#define STRING_BUFFER_SIZE 64
 
-string_buffer: .fill 128,0
+string_buffer: .fill STRING_BUFFER_SIZE,0
 gets_ptr: .dw string_buffer
 
         defcode("GETS",4,0,get_str_forth)
@@ -1795,7 +1796,8 @@ key_loop:
         ;; without entering anything, we need to check for that too.
 
         ;; We should echo enter.
-        b_call _NewLine
+        ld a, ' '
+        b_call _PutC
 
         ld a, b
         or a
@@ -1975,8 +1977,8 @@ unget_char_done:
 ;; gets_ptr.
 
 ;; ( -- base_addr len )
-#define BUFSIZE  32
-word_buffer:     .fill 32, 0
+#define BUFSIZE  16
+word_buffer:     .fill BUFSIZE, 0
 word_buffer_ptr: .dw 0
         defcode("WORD",4,0,word)
         ;; Save IP and TOS.
@@ -2015,6 +2017,11 @@ skip_space:
         jp actual_word
 ;; We really need a word.  Ask again!
 empty_word:
+        push hl
+        ld hl, ok_msg
+        b_call _PutS
+        b_call _NewLine
+        pop hl
         jp word_retry
 skip_comment:
         ;; We could be reading from a text file.
@@ -2557,10 +2564,25 @@ dodoes:
         defword("NUM?",4,0,numq)
         .dw zeroc, ninec, within, exit
 
-        defword("NUM",3,128,num)
-        .dw lit, 0, get_char_forth, dup, numq, not, zbranch, 30, drop, state, fetch, zbranch, 6
-        .dw branch, 10, tick, lit, comma, comma, exit, branch, 14, zeroc, sub
-        .dw swap, ten, mult, add, branch, -54, exit
+        defword("PARSE-NUM", 9, 0, parse_num)
+        .dw dup, fetch_byte, dup, numq, zjump, parse_num_fail
+        .dw zeroc, sub
+
+parse_num_continue:
+        .dw swap, one_plus, swap
+
+parse_num_loop:
+        .dw over, fetch_byte, zjump, parse_num_done
+        .dw over, fetch_byte, numq, zjump, parse_num_fail
+        .dw over, fetch_byte, zeroc, sub, swap, lit, 10, mult, add
+        .dw jump, parse_num_continue
+
+parse_num_done:
+        .dw swap, drop
+        .dw lit, 1, num_status, store, exit
+
+parse_num_fail:
+        .dw two_drop, lit, 0, num_status, store, exit
 
         defword("CFA>",4,0, cfa_to)
         .dw latest, fetch, qdup, zbranch, 22, two_dup, swap
@@ -2821,6 +2843,14 @@ load_long_name_msg: .db "Name must be 8 characters or shorter. ", 0
         .dw lit, load_not_found_msg2, putstrln, drop, exit
 
 
+        defcode("REFILL", 6, 0, refill)
+        call get_str
+        NEXT
+        
+        defword("QUIT", 4, 0, quit)
+        .dw sz, fetch, sp_store, refill, jump, interpret_loop
+
+
 ;; Taken from http://z80-heaven.wikidot.com/sound
 
         ;; ( frequency duration -- )
@@ -2893,18 +2923,7 @@ FreqOutDone:
         defword("STAR", 4, 0, star)
         .dw lit, 42, emit, exit
 
-setup_data_segment:
-        ld de, here_start
-        ld hl, var_here
-        ld (save_sp), sp
-        ld (var_sz), sp
-        ld (hl), e
-        inc hl
-        ld (hl), d
-        ld ix, return_stack_top
-        ret
-
-ok_msg: .db "ok",0
+ok_msg: .db " ok",0
 undef_msg: .db " ?",0
 prog_exit: .dw 0
 save_sp:   .dw 0
@@ -2912,18 +2931,33 @@ save_ix:   .dw 0
 
 return_stack_top  .EQU    $91DC + 294
 
-;; We should be able to define an interpreter in Forth that supports compiled code if we try.
-;; Coming later:  A interpreter defined in Forth and meta-compiled.
-prog:
-;;      .dw get_str_forth
-        .dw word, find, dup, zbranch, 48
-        .dw lit, var_state, fetch, zbranch, 18, to_cfa, execute, space
-        .dw lit, ok_msg, putstrln, branch, -34
+        ;; The interpreter
+        defword("INTERPRET", 9, 0, interpret)
+interpret_loop:
+        .dw word, find, qdup, zjump, maybe_num
+        .dw lit, var_state, fetch, not, zjump, interpret_word
 
-        .dw dup, qimmed, zbranch, 6
-        .dw branch, -26
+compiling_word:
+        .dw dup, qimmed, zjump, compile_word
+        
+interpret_word:
+        .dw to_cfa, execute, jump, interpret_loop
 
-        .dw to_cfa, comma, branch, -30, drop, lit, undef_msg, putstrln, branch, -66
+compile_word:
+        .dw to_cfa, comma, jump, interpret_loop
+
+maybe_num:
+        .dw lit, word_buffer, parse_num
+        .dw num_status, fetch, zjump, undef
+        .dw lit, var_state, fetch, not, zjump, interpret_loop
+
+compile_num:
+        .dw lit, lit, comma, comma, jump, interpret_loop
+undef:
+        ;; Go to interpret mode and clear the stack.
+        .dw lbrac, sz, fetch, sp_store
+        .dw lit, undef_msg, putstrln, jump, interpret_loop
+        
         .dw done
 
 

@@ -122,7 +122,7 @@ the Forth REPL.
 
 ## Features
 - A 16-bit Forth on a 8-bit chip
-  - Contains 225 words (and counting) for everything from memory
+  - Contains ~225 words (and counting) for everything from memory
   management to drawing pixels, de-compilation and even playing sounds
   over the I/O port.
 - Support for writeback.  Use `SIMG` (save image) and `LIMG` (load
@@ -150,6 +150,7 @@ NUM CFA> PICK U.  UWIDTH SPACES U.R U.  .  DEPTH .S HEX DEC SEE WORDS
 CASE OF ENDOF ENDCASE I J CSCR CBLK FBLK RUN LOAD SMIT PLOT WR PN BYE
 STAR
 ```
+Note that floating point routines are commented out by default to save on space.
 
 ## Screenshots
 ### TI-84+ inside
@@ -238,7 +239,7 @@ pasted into the program.
       custom Forth system.
 
 ## Current Limitations
-- [ ] REPL prints out "ok" at the end of each word parsed, `QUIT` not
+- [x] REPL prints out "ok" at the end of each word parsed, `QUIT` not
       implemented.
 - [ ] Indirect threading means we cannot use scratch space in addreses
       higher than `$C000` as if the program counter exceeds `$C000` it
