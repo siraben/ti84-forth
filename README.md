@@ -1,6 +1,5 @@
 # Forth implementation for the TI-84+ calculator
 ![Defining DOUBLE](images/double-def.png)
-![key-prog program](images/demo2.png)
 
 ## Why TI-84+?
 This is a calculator that is more or less ubiquitous among high school
@@ -152,12 +151,15 @@ STAR
 Note that floating point routines are commented out by default to save on space.
 
 ## Screenshots
-### Combine words in powerful, practical ways.
+### Combine words in powerful, practical ways
 Combine low-level memory words with drawing words and user input words
 to create an arrow-key scrollable screen for viewing RAM memory.  See
 the 20 (or less) lines of code at `programs/memview.fs`.
 
 ![What forth.asm looks like loaded into RAM](images/ram-screenshot.png)
+
+### TI-84+ inside
+![key-prog program](images/demo2.png)
 
 ### Load programs
 Simple unfinished modal text editor with a scrollable screen.
