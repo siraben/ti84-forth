@@ -10,8 +10,8 @@
 
   DUP 10 <
   IF
-         NUM 48
+         48
   ELSE
-         10 - NUM 65
+         10 - 65
   THEN + EMIT
 ;

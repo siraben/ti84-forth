@@ -4,7 +4,7 @@
 UALT
 : (
     BEGIN
-      GETC NUM 41 = IF EXIT THEN
+      GETC 41 = IF EXIT THEN
     AGAIN
 ; IMMED
 
@@ -19,21 +19,21 @@ UALT
 
 : TYPE ( c-addr u -- ) 0 DO DUP C@ EMIT 1+ LOOP DROP ;
 
-: PL NUM 16 TYPE ;
+: PL 16 TYPE ;
 
 ( Display the text area )
 : TXT ( addr -- addr )
   DUP
   1 0 AT-XY
-  NUM 112 TYPE
+  112 TYPE
 ;
 
 \ Short names conserve some space.
 ( addr -- addr )
-: NL NUM 16 + ;
-: PL NUM 16 - ;
-: NP NUM 80 + ;
-: PP NUM 80 - ;
+: NL 16 + ;
+: PL 16 - ;
+: NP 80 + ;
+: PP 80 - ;
 
 VAR CT
 
@@ -48,7 +48,7 @@ VAR CT
 
 \ Convert a line number to character number.
 : CN ( linum -- charnum )
-  NUM 16 *
+  16 *
 ;
 
 \ Mark line.
@@ -64,7 +64,7 @@ VAR CT
 : FILL -ROT 0 DO 2DUP C! 1+ LOOP 2DROP ;
 
 : DL ( addr linum -- addr linum )
-  2DUP CN + NUM 16 NUM 32 FILL
+  2DUP CN + 16 32 FILL
 ;
 
 : DT S"  --- DELETE --- " DROP ;

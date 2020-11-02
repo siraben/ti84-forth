@@ -17,7 +17,7 @@
 
 : ( IMMED
     BEGIN
-      GETC NUM 41 = IF
+      GETC 41 = IF
         EXIT
       THEN
     AGAIN
@@ -59,7 +59,7 @@ So we need to convert ASCII 0-9 into BCD.
         SWAP            ( end-of-word start-of-word )
 
         ( begin the definition with : NAME [IMMEDIATE] )
-        NUM 58 EMIT SPACE DUP ID. SPACE
+        58 EMIT SPACE DUP ID. SPACE
         DUP ?IMMED IF ." IMMEDIATE " THEN
 
         >DFA            ( get the data address, ie. points after DOCOL | end-of-word start-of-data )
@@ -76,11 +76,11 @@ So we need to convert ASCII 0-9 into BCD.
                         .                       ( and print it )
                 ENDOF
                 ' LITSTR OF             ( is it LITSTRING ? )
-                        NUM 83 EMIT NUM 34 EMIT SPACE ( print S"<space> )
+                        83 EMIT 34 EMIT SPACE ( print S"<space> )
                         2+ DUP @                ( get the length )
                         SWAP 2+ SWAP            ( end start+2 length )
                         2DUP TELL               ( print the string )
-                        NUM 34 EMIT SPACE               ( finish the string with a final quote )
+                        34 EMIT SPACE               ( finish the string with a final quote )
                         +                       ( end start+4+len, aligned )
                         1+                        ( because we're about to add 4 below )
                 ENDOF
@@ -97,7 +97,7 @@ So we need to convert ASCII 0-9 into BCD.
                         ." ) "
                 ENDOF
                 ' ' OF                  ( is it ' TICK ? )
-                        NUM 39 EMIT SPACE
+                        39 EMIT SPACE
                         2+ DUP @                ( get the next codeword )
                         CFA>                    ( and force it to be printed as a dictionary entry )
                         ID. SPACE
@@ -121,11 +121,10 @@ So we need to convert ASCII 0-9 into BCD.
                 2+              ( end start+4 )
         REPEAT
 
-        NUM 59 EMIT CR
+        59 EMIT CR
 
         2DROP           ( restore stack )
 ;
-
 
 ." TEST loaded."
 ." We have used " USED . ." bytes of RAM."

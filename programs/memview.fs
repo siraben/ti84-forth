@@ -1,9 +1,9 @@
 \ View memory locations interactively.
 \ Number of bytes that the plot window can see.
 
-NUM 767 CONST PLOTSZ
-NUM 12 CONST STEP
-NUM 36 CONST STEPL
+767 CONST PLOTSZ
+12 CONST STEP
+36 CONST STEPL
 
 : PP PAGE PLOT ;
 \ Memory slice; view the memory location on the stack.

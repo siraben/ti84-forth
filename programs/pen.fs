@@ -24,7 +24,7 @@ VARIABLE PY
 ;
 
 : PEN_DOWN
-  NUM 65535 PY +!
+  65535 PY +!
 ;
 
 : PEN_RIGHT
@@ -32,7 +32,7 @@ VARIABLE PY
 ;
 
 : PEN_LEFT
-  NUM 65535 PX +!
+  65535 PX +!
 ;
 
 : PEN

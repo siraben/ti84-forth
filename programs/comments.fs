@@ -2,7 +2,7 @@
 
 : ( IMMED
     BEGIN
-      GETC NUM 41 = IF
+      GETC 41 = IF
         EXIT
       THEN
     AGAIN

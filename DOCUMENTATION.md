@@ -2,10 +2,6 @@
 All stack elements are 16-bit unsigned integers.
 ## CODE words
 ### EXIT ( -- )
-### FOO ( -- n )
-Pushes the number 1234 onto the stack.
-### BAR ( -- n)
-Pushes the number 5678 onto the stack.
 ### DUP ( n -- n n )
 Duplicates the top element of the stack.
 ### + ( a b -- a+b )
@@ -231,8 +227,6 @@ Exit the program.
 ## WORD Words
 ### SQ
 ### .Q
-### 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
-Push the corresponding number onto the stack.
 ### USED ( -- n )
 Returns how many bytes have been used (starting from `H0`).
 ### SIMG

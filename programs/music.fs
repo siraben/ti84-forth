@@ -4,7 +4,7 @@
   BEGIN
     KEY DUP 5 <>
   WHILE
-    DUP CR . NUM 40000 SMIT
+    DUP CR . 40000 SMIT
   REPEAT
   DROP
 ;
