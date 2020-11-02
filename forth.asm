@@ -227,7 +227,7 @@ _:
         ;; 16-bit AND operator, yay!
         defcode("AND",3,0,and)
         pop hl
-        
+
         ;; AND lowest byte first.
         ld a, c
         and l
@@ -240,7 +240,7 @@ _:
 
         defcode("OR",2,0,or)
         pop hl
-        
+
         ld a, c
         or l
         ld c, a
@@ -826,7 +826,6 @@ _c_comma
         pop bc ;; new top of stack
         NEXT
 
-
         defcode("RP@",3,0,rp_fetch)
         push bc
         push ix
@@ -1055,7 +1054,7 @@ key_asm:
         b_call _VPutMap
         pop de
         pop bc
-        NEXT        
+        NEXT
 
 
         ;; Print the top of the stack.
@@ -1718,7 +1717,7 @@ mul32by8_noAdd:
         ld (curRow), a
         pop bc
         NEXT
-        
+
         defcode("ATS-XY",6,0,ats_xy)
         ld a, c
         ld (PenCol), a
@@ -2417,7 +2416,7 @@ dodoes:
         ld a, (IY + AppFlags)
         ld l, %00000100
         xor l
-        ld (IY + AppFlags), a        
+        ld (IY + AppFlags), a
         NEXT
 
         defcode("INVTXT",6,0,inverse_text)
@@ -2846,7 +2845,7 @@ load_long_name_msg: .db "Name must be 8 characters or shorter. ", 0
         defcode("REFILL", 6, 0, refill)
         call get_str
         NEXT
-        
+
         defword("QUIT", 4, 0, quit)
         .dw sz, fetch, sp_store, refill, jump, interpret_loop
 
@@ -2939,7 +2938,7 @@ interpret_loop:
 
 compiling_word:
         .dw dup, qimmed, zjump, compile_word
-        
+
 interpret_word:
         .dw to_cfa, execute, jump, interpret_loop
 
@@ -2957,7 +2956,7 @@ undef:
         ;; Go to interpret mode and clear the stack.
         .dw lbrac, sz, fetch, sp_store
         .dw lit, undef_msg, putstrln, jump, interpret_loop
-        
+
         .dw done
 
 

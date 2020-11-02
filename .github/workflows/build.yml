@@ -1,4 +1,4 @@
-name: 'nix-remarkable'
+name: 'build'
 on:
   pull_request:
   push:

@@ -1,6 +1,33 @@
 # Forth implementation for the TI-84+ calculator
 ![Defining DOUBLE](images/double-def.png)
 
+## Features
+- A 16-bit Forth on a 8-bit chip
+  - Contains ~225 words (and counting) for everything from memory
+  management to drawing pixels, decompilation and even playing sounds
+  over the I/O port.
+- Support for writeback (persistent data across program runs).  Use
+  `SIMG` (save image) and `LIMG` (load image) to save the words you've
+  defined in a session.
+- Highly readable and customizable implementation, see `forth.asm`
+
+## Getting the interpreter
+Download the latest binary from the
+[Releases](https://github.com/siraben/ti84-forth/releases) page or get
+the bleeding edge output from the [GitHub Actions
+CI](https://github.com/siraben/ti84-forth/actions).
+
+### The Real Thing
+- A TI-84+ calculator!
+- [TI Connect CE](https://education.ti.com/en/products/computer-software/ti-connect-ce-sw)
+- (Optional) A 2.5 mm to 3.5 mm audio cable to connect the I/O port
+  with a speaker.
+
+Flash `forth.8xp` to your calculator.  Make sure there's enough space
+and that you have backed up your calculator!  An easy way to back up
+RAM contents is by creating a group, refer to the manual on how to do
+this.
+
 ## Why TI-84+?
 This is a calculator that is more or less ubiquitous among high school
 and university students throughout the world.  It's not going extinct
@@ -31,33 +58,15 @@ It's also easy to implement incrementally through continuous testing.
 In fact, once the base REPL was implemented, most of the programming
 and testing happened _on_ the calculator itself!
 
-## Getting the interpreter
-Download the latest binary from the
-[Releases](https://github.com/siraben/ti84-forth/releases) page.
-
-### The Real Thing
-- A TI-84+ calculator!
-- [TI Connect CE](https://education.ti.com/en/products/computer-software/ti-connect-ce-sw)
-- (Optional) A 2.5 mm to 3.5 mm audio cable to connect the I/O port
-  with a speaker.
-
-Flash `forth.8xp` to your calculator.  Make sure there's enough space
-and that you have backed up your calculator!  An easy way to back up
-RAM contents is by creating a group, refer to the manual on how to do
-this.
-
-### Emulated
-There are emulators ones for every platform, but in experience the
-easiest one to get started with is
-[jsTIfied](https://www.cemetech.net/projects/jstified/).  Read the
-website's details for more information.  You'll need to obtain a ROM
-image as well, which I can't provide here, but a simple web search
-should lead you to find what you're looking for.
-  
 ## Building
-### Requirements
+### Nix
+```sh
+nix build
+```
+### Mac/Linux
 - [spasm-ng Z80 assembler](https://github.com/alberthdev/spasm-ng)
-  - If you're on a Mac you may need to run the following commands.
+  - If you're on a Mac you will need to install `openssl` as a
+    dependency, for instance on Homebrew:
 ```shell
 brew install openssl
 cd /usr/local/include
@@ -72,12 +81,18 @@ Copy `forth.asm` into the cloned folder.  Then run:
 ./spasm forth.asm forth.8xp
 ```
 
-Then flash.
+### Emulated
+There are many emulators out there, one that doesn't require
+installation is
+[jsTIfied](https://www.cemetech.net/projects/jstified/).  Read the
+website's details for more information.  You'll need to obtain a ROM
+image as well, which I can't provide here, but a simple web search
+might.
+
 ## Using the Interpreter
-First of all, you need to know how to type in the darn thing.
-Simple.  Once you run the program with `Asm(prgmFORTH)`, hit `2nd`
-then `ALPHA` to enter alpha lock mode, and now you can type the
-characters from `A-Z`.  Here are a couple of things to keep in mind.
+Run the program with `Asm(prgmFORTH)`, hit `2nd` then `ALPHA` to enter
+alpha lock mode, and now you can type the characters from `A-Z`.  Here
+are a couple of things to keep in mind.
 
 - Left and right arrows are bound to character delete and space insert
   respectively.
@@ -109,7 +124,7 @@ Type `BYE` and hit `ENTER`.
 
 ## Loading Forth Programs onto the calculator
 ```shell
-function fmake e {
+function fmake() {
     hexdump -e '".db "16/1 "$%02x, " "\n"' "$1" | sed 's/$  ,/$00,/g' | sed 's/.$//' | sed 's/$0a/$20/g' > "${1%.*}.asm" && ./spasm "${1%.*}.asm" "${1%.*}.8xp" && rm "${1%.*}.asm"
 }
 ```
@@ -117,14 +132,6 @@ Once you defined this function in your shell you can just type `fmake
 hello.fs` and transfer the compiled `hello.8xp` to the calculator.  To
 load this file into the interpreter you have to run `LOAD HELLO` in
 the Forth REPL.
-
-## Features
-- A 16-bit Forth on a 8-bit chip
-  - Contains ~225 words (and counting) for everything from memory
-  management to drawing pixels, de-compilation and even playing sounds
-  over the I/O port.
-- Support for writeback.  Use `SIMG` (save image) and `LIMG` (load
-  image) to save the words you've defined in a session.
 
 ## Example Programs
 See `programs/` for program samples, including practical ones.
