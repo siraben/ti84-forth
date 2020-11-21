@@ -21,7 +21,7 @@
         EXIT
       THEN
     AGAIN
-;    
+;
 
 (
 This should not be parsed, thanks to the definition of ( above.

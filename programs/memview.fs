@@ -15,7 +15,7 @@
   BEGIN
     KEY DUP 5 <>
   WHILE
-    OVER MEMSLICE    
+    OVER MEMSLICE
     CASE
       3 OF STEP + ENDOF
       4 OF STEP - ENDOF

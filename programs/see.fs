@@ -1,4 +1,3 @@
-
 \ We want parenthetical comments.
 : ( IMMED
     BEGIN
@@ -6,7 +5,7 @@
         EXIT
       THEN
     AGAIN
-;    
+;
 
 ( Version of SEE that handles string literals.)
 
@@ -96,4 +95,3 @@
 
         2DROP           ( restore stack )
 ;
-

@@ -1,4 +1,3 @@
-
 : MIN 2DUP > IF NIP ELSE DROP THEN ;
 : MAX 2DUP < IF NIP ELSE DROP THEN ;
 
@@ -23,4 +22,3 @@
 ;
 
 PEN
-

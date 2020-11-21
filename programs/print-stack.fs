@@ -6,13 +6,13 @@
 \ works out.
 
 : .S
-	SP@
-	BEGIN
-		DUP SP0 @ <
-	WHILE
-		DUP @ .
-		SPACE
-		2 +
-	REPEAT
-	DROP
+        SP@
+        BEGIN
+                DUP SP0 @ <
+        WHILE
+                DUP @ .
+                SPACE
+                2 +
+        REPEAT
+        DROP
 ;

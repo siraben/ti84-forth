@@ -95,7 +95,7 @@ Decrement the top element of the stack by 4.
 ### <= ( n1 n2 -- b )
 ### < ( n1 n2 -- b )
 ### > ( n1 n2 -- b )
-### 0= ( n1 -- b ) 
+### 0= ( n1 -- b )
 ### RAND ( -- n )
 ### ASK
 ### KEY
@@ -210,7 +210,7 @@ Tucks the top element two locations prior.
 ### '0'
 ### '9'
 ### I
-### SMIT ( freq dur --  ) 
+### SMIT ( freq dur --  )
 Sound emit.  Play the "frequency" with the duration.  The convention
 is that the lower the frequency number the higher it actually is in
 real life.
