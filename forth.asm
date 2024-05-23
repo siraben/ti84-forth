@@ -2828,6 +2828,7 @@ fblk_fail:
         BC_TO_HL
         ld (gets_ptr), hl
         pop bc
+        ld de, interp
         NEXT
 
 
@@ -2930,6 +2931,10 @@ save_ix:   .dw 0
 
 return_stack_top  .EQU    $91DC + 294
 
+        ;; 
+interp:
+        .dw get_str_forth, interpret, done
+        
         ;; The interpreter
         defword("INTERPRET", 9, 0, interpret)
 interpret_loop:
