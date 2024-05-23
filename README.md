@@ -2,14 +2,14 @@
 ![Defining DOUBLE](images/double-def.png)
 
 ## Features
-- A 16-bit Forth on a 8-bit chip
+- A 16-bit Forth on an 8-bit chip
   - Contains ~225 words (and counting) for everything from memory
-  management to drawing pixels, decompilation and even playing sounds
+  management to drawing pixels, decompilation, and even playing sounds
   over the I/O port.
-- Support for writeback (persistent data across program runs).  Use
+- Support for writeback (persistent data across program runs). Use
   `SIMG` (save image) and `LIMG` (load image) to save the words you've
   defined in a session.
-- Highly readable and customizable implementation, see `forth.asm`
+- Highly readable and customizable implementation, see `forth.asm`.
 
 ## Getting the interpreter
 Download the latest binary from the
@@ -23,36 +23,36 @@ CI](https://github.com/siraben/ti84-forth/actions).
 - (Optional) A 2.5 mm to 3.5 mm audio cable to connect the I/O port
   with a speaker.
 
-Flash `forth.8xp` to your calculator.  Make sure there's enough space
-and that you have backed up your calculator!  An easy way to back up
+Flash `forth.8xp` to your calculator. Make sure there's enough space
+and that you have backed up your calculator! An easy way to back up
 RAM contents is by creating a group, refer to the manual on how to do
 this.
 
 ## Why TI-84+?
 This is a calculator that is more or less ubiquitous among high school
-and university students throughout the world.  It's not going extinct
-anytime soon (expect perhaps to newer models such as the TI-84 CE).
-But let's face it.  TI-BASIC is not a nice language; it's slow and
-suffers from lack of low-level bindings.  There's no REPL.  We want a
+and university students throughout the world. It's not going extinct
+anytime soon (except perhaps to newer models such as the TI-84 CE).
+But let's face it. TI-BASIC is not a nice language; it's slow and
+suffers from lack of low-level bindings. There's no REPL. We want a
 language that gives the programmer the full power of the
-calculator—treating it as the computer it is.  In fact people already
+calculator—treating it as the computer it is. In fact, people already
 do, by writing assembly programs, but assembly has its share of
 disadvantages.
 
 ## Why Forth?
-Assembly is painful to program in.  Programs crash at the slightest
-hint of error.  Development is a slow process, and you have to keep
+Assembly is painful to program in. Programs crash at the slightest
+hint of error. Development is a slow process, and you have to keep
 reinventing the wheel with each program.
 
 Wouldn't it be great to have a programming language on the TI-84+
 that's much faster than TI-BASIC but easier to understand and as low
-level as assembly?  Forth is just that.  (Read _Starting FORTH_ for an
-excellent introduction to Forth).  It's low level, it's simple, but
+level as assembly? Forth is just that. (Read _Starting FORTH_ for an
+excellent introduction to Forth). It's low level, it's simple, but
 also _easy to type_, especially when you're on a calculator with a
-non-QWERTY keyboard.  It is a very powerful language, allowing you to
-do things like change the syntax of the language itself.  `IF`,
+non-QWERTY keyboard. It is a very powerful language, allowing you to
+do things like change the syntax of the language itself. `IF`,
 `WHILE`, `CONSTANT` etc. statements are all implemented in Forth!
-Think of it as a untyped C with a REPL and the power of Lisp macros.
+Think of it as an untyped C with a REPL and the power of Lisp macros.
 
 It's also easy to implement incrementally through continuous testing.
 In fact, once the base REPL was implemented, most of the programming
@@ -65,7 +65,7 @@ nix build
 ```
 ### Mac/Linux
 - [spasm-ng Z80 assembler](https://github.com/alberthdev/spasm-ng)
-  - If you're on a Mac you will need to install `openssl` as a
+  - If you're on a Mac, you will need to install `openssl` as a
     dependency, for instance on Homebrew:
 ```shell
 brew install openssl
@@ -75,7 +75,7 @@ ln -s ../opt/openssl/include/openssl .
   - Compile the assembler with `make` (check required packages for
     your system).
 
-Copy `forth.asm` into the cloned folder.  Then run:
+Copy `forth.asm` into the cloned folder. Then run:
 
 ```shell
 ./spasm forth.asm forth.8xp
@@ -84,14 +84,14 @@ Copy `forth.asm` into the cloned folder.  Then run:
 ### Emulated
 There are many emulators out there, one that doesn't require
 installation is
-[jsTIfied](https://www.cemetech.net/projects/jstified/).  Read the
-website's details for more information.  You'll need to obtain a ROM
+[jsTIfied](https://www.cemetech.net/projects/jstified/). Read the
+website's details for more information. You'll need to obtain a ROM
 image as well, which I can't provide here, but a simple web search
-might.
+might help.
 
 ## Using the Interpreter
 Run the program with `Asm(prgmFORTH)`, hit `2nd` then `ALPHA` to enter
-alpha lock mode, and now you can type the characters from `A-Z`.  Here
+alpha lock mode, and now you can type the characters from `A-Z`. Here
 are a couple of things to keep in mind.
 
 - Left and right arrows are bound to character delete and space insert
@@ -100,7 +100,7 @@ are a couple of things to keep in mind.
 - Hitting `ENTER` sends it over to the interpreter.
 
 If you want to see the keymap, find the label `key_table` in
-`forth.asm`.  This table maps the keys received by `KEY` to the
+`forth.asm`. This table maps the keys received by `KEY` to the
 appropriate character.
 
 ### Typing ASCII Characters
@@ -122,16 +122,25 @@ information on how to type the following characters: `[]{}"?:`.
 ## Exiting the Interpreter
 Type `BYE` and hit `ENTER`.
 
-## Loading Forth Programs onto the calculator
-```shell
-function fmake() {
-    hexdump -e '".db "16/1 "$%02x, " "\n"' "$1" | sed 's/$  ,/$00,/g' | sed 's/.$//' | sed 's/$0a/$20/g' > "${1%.*}.asm" && ./spasm "${1%.*}.asm" "${1%.*}.8xp" && rm "${1%.*}.asm"
-}
+Here is the more concise "Loading Forth Programs onto the Calculator" section:
+
+## Loading Forth Programs onto the Calculator
+
+Use the provided `fmake.py` script to convert Forth source files to the TI-84+ executable format.
+
+Run the script to generate the assembly file:
+
+```sh
+python fmake.py hello.fs
 ```
-Once you defined this function in your shell you can just type `fmake
-hello.fs` and transfer the compiled `hello.8xp` to the calculator.  To
-load this file into the interpreter you have to run `LOAD HELLO` in
-the Forth REPL.
+
+To also assemble it to a `.8xp` executable, add the `--assemble` flag:
+
+```sh
+python fmake.py hello.fs --assemble
+```
+
+Transfer `hello.8xp` to your calculator using [TI Connect CE](https://education.ti.com/en/products/computer-software/ti-connect-ce-sw) and load it into the interpreter by running `LOAD HELLO` in the Forth REPL on your calculator.
 
 ## Example Programs
 See `programs/` for program samples, including practical ones.
@@ -154,12 +163,12 @@ AGAIN WHILE REPEAT CHAR (COMP) CONST ALLOT CELLS RECURSE VAR DO LOOP
 .  DEPTH .S HEX DEC SEE WORDS CASE OF ENDOF ENDCASE I J CSCR CBLK FBLK
 RUN LOAD SMIT PLOT WR PN BYE STAR
 ```
-Note that floating point routines are commented out by default to save on space.
+Note that floating point routines are commented out by default to save space.
 
 ## Screenshots
 ### Combine words in powerful, practical ways
 Combine low-level memory words with drawing words and user input words
-to create an arrow-key scrollable screen for viewing RAM memory.  See
+to create an arrow-key scrollable screen for viewing RAM memory. See
 the 20 (or less) lines of code at `programs/memview.fs`.
 
 ![What forth.asm looks like loaded into RAM](images/ram-screenshot.png)
@@ -174,7 +183,7 @@ Simple unfinished modal text editor with a scrollable screen.
 
 ## Design Notes
 ### Use of Macros
-Judicious use of macros has greatly improved readability of the code.
+Judicious use of macros has greatly improved the readability of the code.
 This was directly inspired by the _jonesforth_ implementation (see
 Reading List).
 ### Register Allocation
@@ -192,7 +201,7 @@ track of the top element in the stack.
 ### Reading List
 Documentation can vary from very well-documented to resorting to
 having to read the source code of `spasm-ng` to figure out how
-`#macro` worked.  See examples such as `defcode` and `defword`.  I
+`#macro` worked. See examples such as `defcode` and `defword`. I
 couldn't make `defconst` or `defvar`, however, but this was fixed by
 writing it out manually.
 
@@ -205,7 +214,7 @@ writing it out manually.
 
 ## To be Implemented
 - [x] Ability to read/write programs
-  - [x] `WB` word to writeback ~~2048~~ 400 (see *Current Limitations*)
+  - [x] `WB` word to write back ~~2048~~ 400 (see *Current Limitations*)
          bytes of data starting from the address of `SCRATCH`.
   - [x] Ability to "execute" strings (so that programs can be
         interpreted).
@@ -224,7 +233,7 @@ pasted into the program.
   - [x] Respect hidden flag to avoid infinite looping. (`:` makes the
         word hidden).
   - [x] Reading numbers (support for 0-10 inclusive hardcoded, but not
-        a general algorithm).  See `programs/number.fs`
+        a general algorithm). See `programs/number.fs`
 - [ ] Document Forth words (partially done)
 - [ ] Add Z80 assembler in Forth (so ASM programs can be made!)
 - [x] Implement `DOES>`
@@ -235,10 +244,11 @@ pasted into the program.
       screenshots).
 - [ ] Add computer program to allow the user to select the words for a
       custom Forth system.
+- [x] Implement `extract.py` to extract and decode binary data from a PNG image, allowing analysis and debugging of the stored image data.
 
 ## Current Limitations
 - [x] REPL prints out "ok" at the end of each word parsed, `QUIT` not
       implemented.
-- [ ] Indirect threading means we cannot use scratch space in addreses
+- [ ] Indirect threading means we cannot use scratch space in addresses
       higher than `$C000` as if the program counter exceeds `$C000` it
       crashes the OS.
