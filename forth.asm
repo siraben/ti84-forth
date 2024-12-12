@@ -4,7 +4,7 @@
 
 
 ;; Push BC to the return stack.
-;; 4 + 19 + 4 + 19 = 46
+;; 10 + 19 + 10 + 19 = 58
 #define PUSH_BC_RS dec ix
 #defcont         \ ld (ix + 0), b
 #defcont         \ dec ix
@@ -18,20 +18,21 @@
 #defcont         \ inc ix
 
 ;; Push HL to the return stack.
-;; 4 + 19 + 4 + 19 = 46
+;; 10 + 19 + 10 + 19 = 58
 #define PUSH_HL_RS dec ix
 #defcont         \ ld (ix + 0), h
 #defcont         \ dec ix
 #defcont         \ ld (ix + 0), l
 
-#define POP_HL_RS  ld l, (ix + 0)
+;; Pop the top entry of the return stack to HL.
 ;; 19 + 10 + 19 + 10 = 58
+#define POP_HL_RS  ld l, (ix + 0)
 #defcont         \ inc ix
 #defcont         \ ld h, (ix + 0)
 #defcont         \ inc ix
 
 ;; Push DE to the return stack.
-;; 4 + 19 + 4 + 19 = 46
+;; 10 + 19 + 10 + 19 = 58
 #define PUSH_DE_RS dec ix
 #defcont         \ ld (ix + 0), d
 #defcont         \ dec ix
@@ -122,21 +123,21 @@ docol:
         NEXT
 
 
-next_sub:               ;; Cycle count (total 47)
+next_sub:               ;; Cycle count (total 38)
         ld a, (de)      ;; 7
         ld l, a         ;; 4
         inc de          ;; 6
         ld a, (de)      ;; 7
         ld h, a         ;; 4
         inc de          ;; 6
-        jp (hl)         ;; 13
+        jp (hl)         ;; 4
 
 
 done:
         ;; We reach here at the end of the program.
         ld hl, 9999
         call cpHLBC
-        jp nz, print_stack_error
+        jr nz, print_stack_error
 
 done_cont:
         b_call _GetKey
@@ -149,7 +150,7 @@ done_cont:
 print_stack_error:
         ld hl, possible_error_msg
         b_call _PutS
-        jp done_cont
+        jr done_cont
 possible_error_msg: .db "Warning: Stack not empty or underflowed.",0
 
 
@@ -262,8 +263,7 @@ _:
         NEXT
 
         defcode("<<",2, 0, left_shift)
-        xor a
-        rl c
+        sla c
         rl b
         NEXT
 
@@ -429,35 +429,30 @@ _:
         NEXT
 
         defcode("LIT",3,0,lit)
-        ld a, (de)
-        ld l, a
-        inc de
-        ld a, (de)
-        ld h, a
-        inc de
         push bc
-        HL_TO_BC
+        ld a, (de)
+        ld c, a
+        inc de
+        ld a, (de)
+        ld b, a
+        inc de
         NEXT
 
         defcode("LITSTR",6,0,litstring)
         ;; String length
-        ld a, (de)
-        ld l, a
-        inc de
-        ld a, (de)
-        ld h, a
-        inc de
-
         push bc ;; old stack top
-        push de ;; push address of string
-        HL_TO_BC ;; BC now contains the string length
-
+        ex de, hl
+        ld c, (hl)
+        inc hl
+        ld b, (hl)
+        ;; BC now contains the string length
+        inc hl
+        push hl ;; push address of string
         ;; Skip the string.
-        add hl, de
+        add hl, bc
         ;; Skip null pointer.  (Even though we have the length, because
         ;; we don't have a bcall Linux that can print out a string with
         ;; a certain length).
-
         inc hl
         ex de, hl
         NEXT
@@ -507,13 +502,12 @@ _:
 strchr_loop:
         ld a, (hl)
         or a
-        jr z, strchr_fail
+        jp z, fal
         cp b
-        jp z, strchr_succ
+        jr z, strchr_succ
         inc hl
         jr strchr_loop
-strchr_fail:
-        jp fal
+
 strchr_succ:
         HL_TO_BC
         NEXT
@@ -533,8 +527,8 @@ strchr_succ:
         ld l, a
         inc bc
         ld a, (bc)
-        ld h, a
-        HL_TO_BC
+        ld b, a
+        ld c, l
         NEXT
 
         ;; ( n addr -- )
@@ -682,9 +676,7 @@ var_latest:
         cell_alloc(var_stack_empty,1)
         defcode("?SE", 3, 0, stack_emptyq)
         push bc
-        ld hl, (var_stack_empty)
-        ld b, h
-        ld c, l
+        ld bc, (var_stack_empty)
         NEXT
 
         cell_alloc(var_here,0)
@@ -757,14 +749,13 @@ var_latest:
         NEXT
 
         defcode("'",1,0,tick)
-        ld a, (de)
-        ld l, a
-        inc de
-        ld a, (de)
-        ld h, a
-        inc de
         push bc
-        HL_TO_BC
+        ex de, hl
+        ld c, (hl)
+        inc hl
+        ld b, (hl)
+        inc hl
+        ex de, hl
         NEXT
 
         defcode(",",1,0,comma)
@@ -880,52 +871,29 @@ cpBCDE:
         ret
 
         defcode("JUMP", 4, 0, jump)
-        ld a, (de)
-        ld l, a
-        inc de
-        ld a, (de)
-        ld h, a
-        HL_TO_DE
+        ex de, hl
+        ld e, (hl)
+        inc hl
+        ld d, (hl)
         NEXT
 
         defcode("0JUMP", 5, 0, zjump)
-        xor a
-        cp c
-        jp z, zjump_maybe
-        jp nz, zjump_fail
-
-zjump_maybe:
-        xor a
-        cp b
-        jp nz, zjump_fail
+        ld a, b
+        or c
         pop bc
-        jp jump
-
-zjump_fail:
+        jp z, jump
         inc de
         inc de
-        pop bc
         NEXT
 
         defcode("0BRANCH", 7, 0, zbranch)
-        ld a, c
-        cp 0
-        jp z, zbranch_maybe
-        jp nz, zbranch_fail
-
-zbranch_maybe:
         ld a, b
-        cp 0
-        jp nz,zbranch_fail
+        or c
         pop bc
-        jp branch
-zbranch_fail:
+        jp z, branch
         ;; The top of the stack wasn't zero.  Skip the offset and resume execution.
         inc de
         inc de
-
-        pop bc ;; New top of stack
-
         NEXT
 
         defcode("?DUP",4,0,qdup)
@@ -967,18 +935,11 @@ zbranch_fail:
 
         defcode(">",1,0,greater_than)
         pop hl
-        push hl
-        push bc
         call cpHLBC
-        pop bc
-        pop hl
-        jp nc, gt_check_neq
+        jp c, fal
+        jp nz, tru
         jp fal
-gt_check_neq:
-        call cpHLBC
-        jp z, fal
-        jp tru
-
+        
         defcode("0=",2,0,zeql)
         ld hl, 0
         call cpHLBC
@@ -1102,13 +1063,13 @@ akey_asm:
         ld h, 0
         ld l , a
         cp kSpace
-        jp z, akey_return_space
+        jr z, akey_return_space
         ld de, key_table
         ;; Add the offset
         add hl, de
         ld a, (hl)
         cp ' '
-        jp z, akey_asm
+        jr z, akey_asm
         ret
 
 akey_return_space:
@@ -1118,16 +1079,11 @@ akey_return_space:
         defcode("TO_ASCII",8,0,to_ascii)
         ;; First portion is copied from key.
         push bc
-        push de
-        ld h, 0
-        ld l , c
-        ld de, key_table
-        ;; Add the offset
-        add hl, de
-        ld a, (hl)
-        ld c, a
         ld b, 0
-        pop de
+        ld hl, key_table
+        ;; Add the offset
+        add hl, bc
+        ld c, (hl)
         NEXT
 
 key_table:
@@ -1642,10 +1598,10 @@ dd_setBit:
         ld a, b
 add16to32:
         add ix, de
-        jp nc, add16to32_done
+        jr nc, add16to32_done
         or a
         inc c
-        jp z, add16to32_done
+        jr z, add16to32_done
         add a, 1
 add16to32_done:
         ld b, a
@@ -1789,7 +1745,7 @@ key_loop:
         pop hl
 
         cp kEnter
-        jp nz, not_enter
+        jr nz, not_enter
 
         ;; Got [ENTER].  Finish up.  Maybe the user hit [ENTER]
         ;; without entering anything, we need to check for that too.
@@ -1798,31 +1754,23 @@ key_loop:
         ld a, ' '
         b_call _PutC
 
-        ld a, b
-        or a
-        jp z, no_chars
-
         xor a
+        cp b
         ld (de), a
-
-        ret
-
-no_chars:
-        xor a
-        ld (de), a
+        ret nz
         inc de
         ld (de), a
         ret
 not_enter:
         ;; Maybe it's the delete key?
         cp kDel
-        jp z, is_del
+        jr z, is_del
 
         ;; For convenience, the left arrow key in alpha mode also
         ;; works as a DEL.
 
         cp kLeft
-        jp nz, not_del
+        jr nz, not_del
 
 is_del:
         ;; Yep.  Let's give some feedback.
@@ -1897,10 +1845,10 @@ not_clear:
 
         ;; Special keys that actually write a space.
         cp kSpace
-        jp z, write_space
+        jr z, write_space
 
         cp kRight ;; right arrow, alpha mode
-        jp z, write_space
+        jr z, write_space
 
         ;; Convert to ASCII.
         ld h, 0
@@ -1941,7 +1889,7 @@ get_char_asm:
 
         ld a, (de)
         or a
-        jp z, get_char_end
+        jr z, get_char_end
         inc de
         ld (hl), e
         inc hl
@@ -2003,17 +1951,17 @@ word_retry:
 skip_space:
         call get_char_asm
         or a
-        jp z, empty_word  ;; get_char_asm returned nothing, so we need to retry
+        jr z, empty_word  ;; get_char_asm returned nothing, so we need to retry
                           ;; with get_str
         cp ' '
-        jp z, skip_space
+        jr z, skip_space
         cp '\n' ;; if we're reading from a converted text file.
-        jp z, skip_space
+        jr z, skip_space
         cp '\t'
-        jp z, skip_space
+        jr z, skip_space
         cp '\\'
-        jp z, skip_comment
-        jp actual_word
+        jr z, skip_comment
+        jr actual_word
 ;; We really need a word.  Ask again!
 empty_word:
         push hl
@@ -2021,21 +1969,21 @@ empty_word:
         b_call _PutS
         b_call _NewLine
         pop hl
-        jp word_retry
+        jr word_retry
 skip_comment:
         ;; We could be reading from a text file.
         call get_char_asm
 
         ;; Ran out of input.
         or a
-        jp z, empty_word
+        jr z, empty_word
 
         ;; Newline found.  Then go to start.
         cp '\n'
-        jp z, skip_space
+        jr z, skip_space
 
         ;; Some other character.
-        jp skip_comment
+        jr skip_comment
 
 actual_word:
         ld c, 1
@@ -2047,17 +1995,17 @@ actual_word_loop:
         inc hl
         call get_char_asm
         or a
-        jp z, word_done
+        jr z, word_done
         cp ' '
-        jp z, word_done
+        jr z, word_done
         cp '\n'
-        jp z, word_done
+        jr z, word_done
         cp '\t'
-        jp z, word_done
+        jr z, word_done
 
         ;; A is another non-space, printable character.
         inc c
-        jp actual_word_write
+        jr actual_word_write
 
 word_done:
         ;; Either read NUL or a space.
@@ -2065,7 +2013,7 @@ word_done:
         ld (hl), a
         pop de
         ld hl, word_buffer
-        ld b, 0  ;; c should contain the number of characters.
+        ld b, a  ;; c should contain the number of characters.
         push hl
         NEXT
 
@@ -2136,8 +2084,7 @@ word_done:
 
 find_loop:
         call strcmp
-        jp z, find_succeed
-        jp nz, find_retry
+        jr nz, find_retry
 
 find_succeed:
         ;; We found the word.  But is it hidden?
@@ -2145,7 +2092,7 @@ find_succeed:
         ;; Now we're at the length/flags pointer.
         ld a, (de)
         bit 6, a
-        jp nz, find_succ_hidden
+        jr nz, find_succ_hidden
         dec de
         dec de
         pop hl
@@ -2165,21 +2112,14 @@ find_succ_hidden:
         ld h, a
         dec de
         ld a, l
-        or a
-        jp z, find_maybe_fail
-
-find_retry_cont:
+        or h
+        jr z, find_fail
         inc hl
         inc hl
         inc hl
         ex de,hl
         pop hl
-        jp find_loop
-find_maybe_fail:
-        ld a, h
-        cp 0 ;; or a
-        jp z, find_fail
-        jp nz, find_retry_cont
+        jr find_loop
 find_fail:
         pop hl
         pop de
@@ -2363,27 +2303,28 @@ strcmp_exit:
 
         defcode("DOES>",5,128,does_start)
         push de
-        ld de, (var_here)
-        ld hl, does_brac
-        ld a, l
-        ld (de), a
-        inc de
-        ld a, h
-        ld (de), a
-        inc de
-        ld a, $CD
-        ld (de), a
-        inc de
+        ld hl, (var_here)
+        ld de, does_brac
+        
+        ld (hl), e
+        inc hl
+        
+        ld (hl), d
+        inc hl
+        
+        ld (hl), $CD
+        inc hl
 
-        ld hl, dodoes
-        ld a, l
-        ld (de), a
-        inc de
-        ld a, h
-        ld (de), a
-        inc de
+        ld de, dodoes
+        
+        ld (hl), e
+        inc hl
+        
+        ld (hl), d
+        inc hl
 
-        ld hl, var_here
+        ld de, var_here
+        ex de, hl
         ld (hl), e
         inc hl
         ld (hl), d
@@ -2404,7 +2345,7 @@ dodoes:
         defcode("PAGE",4,0,page)
         push bc
         push de
-        ld a, 0
+        xor a
         ld (currow), a
         ld (curcol), a
         b_call _ClrScrnFull
