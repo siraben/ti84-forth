@@ -79,8 +79,8 @@ start:
         b_call _ClrLCDFull
         b_call _HomeUp
 
-        ;; This b_call pushes to the floating point stack, at memory
-        ;; location $9824, below AppBackupScreen at $9872.
+        ;; Save OP1 on the OS floating-point stack.  The RAM field at $9824 is
+        ;; FPS metadata/a pointer; it is not the stack storage itself.
         b_call _PushRealO1
 
         pop bc ;; Save the place where this program needs to go.
@@ -599,7 +599,33 @@ strchr_succ:
         PUSH_DE_RS
         pop de
         pop hl
+        ld a, b
+        or c
+        jr z, cmove_done
         ldir
+cmove_done:
+        POP_DE_RS
+        pop bc
+        NEXT
+
+        ;; Copy from high addresses to low addresses.  Use this when the
+        ;; regions overlap and destination is above source.
+        defcode("CMOVE>",6,0,cmove_backwards)
+        ;; ( source destination amount -- )
+        PUSH_DE_RS
+        pop de
+        pop hl
+        ld a, b
+        or c
+        jr z, cmove_backwards_done
+        add hl, bc
+        dec hl
+        ex de, hl
+        add hl, bc
+        dec hl
+        ex de, hl
+        lddr
+cmove_backwards_done:
         POP_DE_RS
         pop bc
         NEXT
@@ -1117,7 +1143,6 @@ akey_return_space:
 
         defcode("TO_ASCII",8,0,to_ascii)
         ;; First portion is copied from key.
-        push bc
         push de
         ld h, 0
         ld l , c
@@ -1632,27 +1657,19 @@ dd_setBit:
         NEXT
 
 
-;; add16To32 [Maths]
-;;  Performs `ACIX = ACIX + DE`
+        ;; Add an unsigned cell to an unsigned double-cell value.
+        ;; ( high low n -- high' low' )
         defcode("M+",2,0,m_plus)
-        ld (save_ix), ix
         PUSH_DE_RS
-        BC_TO_DE
-        pop bc
-        ld a, b
-add16to32:
-        add ix, de
-        jp nc, add16to32_done
-        or a
-        inc c
-        jp z, add16to32_done
-        add a, 1
-add16to32_done:
-        ld b, a
-        push bc
-        push ix
-        pop bc
-        ld ix,(save_ix)
+        BC_TO_DE                  ;; DE = n
+        pop hl                    ;; low cell
+        add hl, de
+        pop de                    ;; high cell
+        jr nc, m_plus_no_carry
+        inc de
+m_plus_no_carry:
+        push de
+        HL_TO_BC
         POP_DE_RS
         NEXT
 
@@ -1789,10 +1806,14 @@ key_loop:
         pop hl
 
         cp kEnter
+        jp z, got_enter
+        ;; _GetKey returns a distinct code while ALPHA is active/locked.
+        cp kAlphaEnter
         jp nz, not_enter
 
         ;; Got [ENTER].  Finish up.  Maybe the user hit [ENTER]
         ;; without entering anything, we need to check for that too.
+got_enter:
 
         ;; We should echo enter.
         ld a, ' '
@@ -1891,7 +1912,8 @@ clear_loop:
 not_clear:
         ld c, a
         ld a, b
-        cp STRING_BUFFER_SIZE
+        ;; Keep one byte for the terminating NUL.
+        cp STRING_BUFFER_SIZE - 1
         jr z, key_loop
         ld a, c
 
@@ -1967,6 +1989,7 @@ unget_char:
         dec hl
         ld (gets_ptr), hl
 unget_char_done:
+        pop de
         pop hl
         ret
 
@@ -1976,7 +1999,7 @@ unget_char_done:
 ;; gets_ptr.
 
 ;; ( -- base_addr len )
-#define BUFSIZE  16
+#define BUFSIZE  32
 word_buffer:     .fill BUFSIZE, 0
 word_buffer_ptr: .dw 0
         defcode("WORD",4,0,word)
@@ -2038,11 +2061,12 @@ skip_comment:
         jp skip_comment
 
 actual_word:
-        ld c, 1
+        ld c, 0
         ;; A contains the character.
         ld hl, (word_buffer_ptr)
 actual_word_write:
         ld (hl), a
+        inc c
 actual_word_loop:
         inc hl
         call get_char_asm
@@ -2055,9 +2079,27 @@ actual_word_loop:
         cp '\t'
         jp z, word_done
 
-        ;; A is another non-space, printable character.
-        inc c
+        ;; Reserve the final byte for NUL.  Longer tokens are consumed but
+        ;; safely truncated to the dictionary's 31-character name limit.
+        push af
+        ld a, c
+        cp BUFSIZE - 1
+        jr nc, word_discard
+        pop af
         jp actual_word_write
+
+word_discard:
+        pop af
+word_discard_loop:
+        call get_char_asm
+        or a
+        jp z, word_done
+        cp ' '
+        jp z, word_done
+        cp '\n'
+        jp z, word_done
+        cp '\t'
+        jp nz, word_discard_loop
 
 word_done:
         ;; Either read NUL or a space.
@@ -2121,6 +2163,7 @@ word_done:
         pop de
         BC_TO_HL
         call strcmp
+        POP_DE_RS
         jp z, tru
         jp fal
 
@@ -2254,6 +2297,18 @@ strcmp_exit:
         .dw to_cfa, lit, 3, add, exit
 
         defcode("CREATE",6,0,create) ;; ( name length -- )
+        ;; Header flags have only five length bits.  Ignore invalid direct
+        ;; calls rather than corrupting the dictionary or running LDIR with
+        ;; BC=0 (which means 65536 bytes on the Z80).
+        ld a, b
+        or a
+        jr nz, create_invalid_name
+        ld a, c
+        or a
+        jr z, create_invalid_name
+        cp F_LENMASK + 1
+        jr nc, create_invalid_name
+
         ;; Create link pointer and update var_latest to point to it.
         ld hl, (var_here)
         PUSH_DE_RS
@@ -2295,6 +2350,11 @@ strcmp_exit:
         ld (hl), d
 
         POP_DE_RS
+        pop bc
+        NEXT
+
+create_invalid_name:
+        pop bc
         pop bc
         NEXT
 
@@ -2481,7 +2541,9 @@ dodoes:
         .dw lit, 3, add, putstr, exit
 
         defword("HIDE",4,0,hide)
-        .dw word, find, hidden, exit
+        .dw word, find, qdup, zjump, hide_done, hidden
+hide_done:
+        .dw exit
 
         defword("IF",2,128,if)
         .dw tick, zbranch, comma, here, fetch, lit, 0, comma, exit
@@ -2545,7 +2607,15 @@ dodoes:
         .dw tick, eql, comma, tick, zbranch, comma, here, fetch, sub, comma, tick, two_drop, comma, exit
 
         defword("FORGET",6,0,forget)
-        .dw word, find, dup, fetch, latest, store, here, store, exit
+        .dw word, find, qdup, zjump, forget_done
+        ;; Built-in headers are below H0 and are part of the running image;
+        ;; rewinding HERE into them would make the next definition overwrite
+        ;; the interpreter itself.
+        .dw dup, hz, less_than, zjump, forget_apply, drop
+forget_done:
+        .dw exit
+forget_apply:
+        .dw dup, fetch, latest, store, here, store, exit
 
         defcode("'0'",3,0,zeroc)
         push bc
@@ -2598,8 +2668,11 @@ parse_num_fail:
         .dw base, fetch, div, qdup, zbranch, 10, u_width, one_plus, branch, 6, lit, 1, exit
 
         defword("SPACES",6,0,spaces)
+        .dw qdup, zjump, spaces_done
         .dw lit, 0, to_r, to_r, space, from_r, from_r, one_plus, two_dup, eql, zbranch, 65518
-        .dw two_drop, exit
+        .dw two_drop
+spaces_done:
+        .dw exit
 
         defword("U.R",3,0,u_dot_r)
         .dw swap, dup, u_width, rot, swap, sub, spaces, u_dot_, exit
@@ -2761,6 +2834,14 @@ scr_name: .db "SCRATCH",0
 blk_name_buffer: .fill 9, 0
         ;; ( name_string name_len -- block_start )
         defcode("CBLK",4,0,create_block)
+        ld a, b
+        or a
+        jr nz, cblk_invalid_name
+        ld a, c
+        or a
+        jr z, cblk_invalid_name
+        cp 9
+        jr nc, cblk_invalid_name
         call zero_blk_name_buffer
         ;; First make a variable name in OP1.
         pop hl
@@ -2792,10 +2873,21 @@ blk_name_buffer: .fill 9, 0
         inc bc
         inc bc
         NEXT
+cblk_invalid_name:
+        pop bc
+        jp fal
 
         ;; ( name_string name_len -- data_start )
         ;; Return 0 if not found.
         defcode("FBLK",4,0,find_block)
+        ld a, b
+        or a
+        jr nz, fblk_invalid_name
+        ld a, c
+        or a
+        jr z, fblk_invalid_name
+        cp 9
+        jr nc, fblk_invalid_name
         call zero_blk_name_buffer
         pop hl
         push de
@@ -2809,8 +2901,23 @@ blk_name_buffer: .fill 9, 0
         ld hl, blk_name_buffer
         b_call _Mov9ToOP1
         b_call _ChkFindSym
+        jr nc, fblk_found
+        ;; spasm marks arbitrary byte streams as protected programs.  Source
+        ;; blocks made by fmake.py therefore use type 6 rather than ProgObj.
+        ld a, ProtProgObj
+        ld (OP1), a
+        b_call _ChkFindSym
+fblk_found:
         pop ix
         jp c, fblk_fail
+        ;; _ChkFindSym returns a nonzero flash page in B for archived
+        ;; variables.  DE is then an offset that is only meaningful with that
+        ;; page mapped into bank A, not a directly readable RAM pointer.  RUN
+        ;; currently consumes a flat RAM byte stream, so reject archived
+        ;; blocks instead of returning a pointer into unrelated memory.
+        ld a, b
+        or a
+        jr nz, fblk_fail
         ld b, d
         ld c, e
         pop de
@@ -2820,6 +2927,9 @@ blk_name_buffer: .fill 9, 0
 fblk_fail:
         pop de
         jp fal
+fblk_invalid_name:
+        pop bc
+        jp fal
 
         ;; Switch the input stream to the pointer on the stack.
         ;; ( prog_start_ptr --  )
@@ -2828,7 +2938,9 @@ fblk_fail:
         BC_TO_HL
         ld (gets_ptr), hl
         pop bc
-        ld de, interp
+        ;; Continue at the interpreter body.  `interp` begins with GETS and
+        ;; would immediately replace the program source with keyboard input.
+        ld de, interpret_loop
         NEXT
 
 
@@ -2929,6 +3041,9 @@ prog_exit: .dw 0
 save_sp:   .dw 0
 save_ix:   .dw 0
 
+        ;; OS table/solver scratch through the byte before plotSScreen.  This
+        ;; gives the VM 294 bytes (147 cells) while the assembly program owns
+        ;; the machine; it is not AppBackupScreen.
 return_stack_top  .EQU    $91DC + 294
 
         ;; 

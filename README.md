@@ -3,7 +3,7 @@
 
 ## Features
 - A 16-bit Forth on an 8-bit chip
-  - Contains ~225 words (and counting) for everything from memory
+  - Contains over 200 words for everything from memory
   management to drawing pixels, decompilation, and even playing sounds
   over the I/O port.
 - Support for writeback (persistent data across program runs). Use
@@ -82,12 +82,11 @@ Copy `forth.asm` into the cloned folder. Then run:
 ```
 
 ### Emulated
-There are many emulators out there, one that doesn't require
-installation is
-[jsTIfied](https://www.cemetech.net/projects/jstified/). Read the
-website's details for more information. You'll need to obtain a ROM
-image as well, which I can't provide here, but a simple web search
-might help.
+The implementation is regression-tested with headless TilEm and a TI-84 Plus
+OS 2.55MP ROM. ROM images are copyrighted and are not included. To launch the
+assembly payload correctly, load both `FORTH.8xp` and a BASIC wrapper whose
+body is `Asm(prgmFORTH)`; running the assembly variable as BASIC produces
+`ERR:SYNTAX`.
 
 ## Using the Interpreter
 Run the program with `Asm(prgmFORTH)`, hit `2nd` then `ALPHA` to enter
@@ -97,11 +96,17 @@ are a couple of things to keep in mind.
 - Left and right arrows are bound to character delete and space insert
   respectively.
 - Hitting `CLEAR` clears the current input line.
-- Hitting `ENTER` sends it over to the interpreter.
+- Hitting `ENTER` sends it to the interpreter, including while alpha mode or
+  alpha lock is active.
+- Input lines contain at most 63 characters. Longer keypresses are ignored so
+  the 64-byte buffer always remains NUL-terminated.
+- `ok` is printed when the interpreter needs a new input line, not after every
+  individual word on a line.
 
-If you want to see the keymap, find the label `key_table` in
-`forth.asm`. This table maps the keys received by `KEY` to the
-appropriate character.
+If you want to see the keymap, find `key_table` in `forth.asm`. `KEY` returns
+the cooked TI OS `_GetKey` code; `AKEY`, `GETS`, and `TO_ASCII` use the table to
+map supported codes to ASCII. `KEYC` is the nonblocking raw-scan-code interface
+provided by `_GetCSC` and must not be passed to `TO_ASCII`.
 
 ### Typing ASCII Characters
 See the `2nd` or `ALPHA` key combos (in blue on the calculator) for
@@ -122,8 +127,6 @@ information on how to type the following characters: `[]{}"?:`.
 ## Exiting the Interpreter
 Type `BYE` and hit `ENTER`.
 
-Here is the more concise "Loading Forth Programs onto the Calculator" section:
-
 ## Loading Forth Programs onto the Calculator
 
 Use the provided `fmake.py` script to convert Forth source files to the TI-84+ executable format.
@@ -131,39 +134,33 @@ Use the provided `fmake.py` script to convert Forth source files to the TI-84+ e
 Run the script to generate the assembly file:
 
 ```sh
-python fmake.py hello.fs
+python3 fmake.py hello.fs
 ```
 
 To also assemble it to a `.8xp` executable, add the `--assemble` flag:
 
 ```sh
-python fmake.py hello.fs --assemble
+python3 fmake.py hello.fs --assemble
 ```
 
-Transfer `hello.8xp` to your calculator using [TI Connect CE](https://education.ti.com/en/products/computer-software/ti-connect-ce-sw) and load it into the interpreter by running `LOAD HELLO` in the Forth REPL on your calculator.
+`spasm` must be on `PATH` for `--assemble` (the Nix development shell supplies
+both Python and spasm-ng). spasm-ng intentionally exports these byte streams as
+protected program variables; `FBLK` and `LOAD` accept both normal and protected
+programs. TI names are limited to eight characters, so keep the source basename
+to eight alphanumeric characters. The source variable must be in RAM; unarchive
+it before loading because the current input stream does not page archived data
+into the address space. Transfer the `.8xp` with TI Connect CE and run `LOAD
+HELLO` in the Forth REPL.
 
 ## Example Programs
 See `programs/` for program samples, including practical ones.
 
 ## Available Words
-```text
-EXIT DUP + - AND OR XOR << >> INVERT DROP SWAP OVER ROT -ROT 2DROP
-2DUP 2SWAP 1+ 1- 2+ 2- >R R> R@ 2>R 2R> RDROP 2RDROP LIT LITSTR S" .Q
-TELL STRLEN STRCHR !  @ +!  -!  C!  C@ C@C!  CMOVE EXECUTE BASE PREC
-STATE LATEST SP0 [ ] ?SE HERE DOCOL BUF BUFSZ WBUFP WBUF WBUFSZ RP0 H0
-F_IMMED F_HIDDEN F_LENMASK SCR ABS PLOTSS ' , C, SP@ SP!  RP@ RP!
-BRANCH 0BRANCH ?DUP = <> >= <= < > 0= KEY KEYC EMIT T.  ?  AKEY
-TO_ASCII * /MOD SQRT FRAND F.  FREAD F* FSQUARE F= FDUP FDROP FSWAP F+
-F/ FRCI F- FSQRT MD5 D/MOD UM* D+ M+ DS SPACE CR AT-XY PUTS PUTLN GETS
-GETC UNGETC WORD ?IMMED IMMED >NFA >CFA STR= FIND WB USED SIMG LIMG
->DFA CREATE DOCOL_H : ; (DOES>) DOES> PAGE HIDDEN ?HIDDEN MOD / NEGATE
-TRUE FALSE NOT LITERAL NIP TUCK ID.  HIDE IF THEN ELSE BEGIN UNTIL
-AGAIN WHILE REPEAT CHAR (COMP) CONST ALLOT CELLS RECURSE VAR DO LOOP
-+LOOP FORGET '0' '9' WITHIN NUM?  CFA> PICK U.  UWIDTH SPACES U.R U.
-.  DEPTH .S HEX DEC SEE WORDS CASE OF ENDOF ENDCASE I J CSCR CBLK FBLK
-RUN LOAD SMIT PLOT WR PN BYE STAR
-```
-Note that floating point routines are commented out by default to save space.
+
+See [DOCUMENTATION.md](DOCUMENTATION.md) for the supported interfaces and their
+nonstandard details. `WORDS` prints the live dictionary on the calculator.
+Commented-out experiments in `forth.asm` (including floating-point and MD5
+code) are not available words.
 
 ## Screenshots
 ### Combine words in powerful, practical ways
@@ -198,6 +195,31 @@ track of the top element in the stack.
 | IX           | Return stack pointer (RSP)    |
 | SP           | Parameter stack pointer (PSP) |
 
+### Memory layout and persistence
+
+- The OS copies the assembly payload to `userMem` (`$9D95`). The current build
+  has `data_start=$BA3B` and `data_end=$BB9D`, leaving `$0463` (1,123) bytes
+  before `$C000`. That headroom is build-dependent and is not part of the
+  persistent 350-byte reservation. `$C000` is the execution-protection
+  boundary for the normal TI-84 Plus RAM mapping, not a claim that RAM ceases
+  to exist.
+- The parameter stack uses the OS stack. The return stack uses 294 bytes at
+  `$91DC..$9301`, immediately below `plotSScreen`; this is OS scratch workspace
+  and is safe only while the assembly program owns the machine.
+- `SCR`/`HERE` starts at `data_start`. Exactly 350 bytes are reserved for user
+  dictionary data, followed by the two-byte saved `LATEST` and two-byte saved
+  `HERE` fields. Consequently `WB`, `SIMG`, and `LIMG` persist 354 bytes—not
+  400. Dictionary-space exhaustion is not currently checked.
+- `ABS` is `appBackUpScreen` (`$9872`, 768 bytes), `PLOTSS` is
+  `plotSScreen` (`$9340`, 768 bytes), and `UALT` redirects `HERE` to
+  `appBackUpScreen`. These regions are OS scratch buffers, not permanent
+  storage.
+
+The active OS calls are standard TI-83+/84+ bcalls: `_GetKey`, `_GetCSC`,
+`_PutC`, `_PutS`, `_NewLine`, `_ClrLCDFull`, `_ChkFindSym`, `_CreateProg`, and
+the writeback/variable routines. Their equates match the TI-84 Plus include
+tables and were dynamically exercised on OS 2.55MP.
+
 ### Reading List
 Documentation can vary from very well-documented to resorting to
 having to read the source code of `spasm-ng` to figure out how
@@ -214,7 +236,7 @@ writing it out manually.
 
 ## To be Implemented
 - [x] Ability to read/write programs
-  - [x] `WB` word to write back ~~2048~~ 400 (see *Current Limitations*)
+  - [x] `WB` word to write back the 354-byte persistent data segment
          bytes of data starting from the address of `SCRATCH`.
   - [x] Ability to "execute" strings (so that programs can be
         interpreted).
@@ -232,8 +254,7 @@ pasted into the program.
   - [x] Allowing more than one word at a time input
   - [x] Respect hidden flag to avoid infinite looping. (`:` makes the
         word hidden).
-  - [x] Reading numbers (support for 0-10 inclusive hardcoded, but not
-        a general algorithm). See `programs/number.fs`
+  - [x] Reading unsigned decimal numbers modulo 16 bits
 - [ ] Document Forth words (partially done)
 - [ ] Add Z80 assembler in Forth (so ASM programs can be made!)
 - [x] Implement `DOES>`
@@ -247,8 +268,11 @@ pasted into the program.
 - [x] Implement `extract.py` to extract and decode binary data from a PNG image, allowing analysis and debugging of the stored image data.
 
 ## Current Limitations
-- [x] REPL prints out "ok" at the end of each word parsed, `QUIT` not
-      implemented.
-- [ ] Indirect threading means we cannot use scratch space in addresses
-      higher than `$C000` as if the program counter exceeds `$C000` it
-      crashes the OS.
+
+- Dictionary allocation has no bounds check. The reserved persistent scratch
+  area is 350 bytes and the current image has additional headroom before
+  `$C000`, but compiled threaded code must remain below the protected boundary.
+- Comparisons and division are unsigned. `WITHIN` includes both endpoints, and
+  `+LOOP` terminates on equality rather than standard boundary crossing.
+- `QUIT` resets the parameter stack and resumes the terminal; it does not
+  unwind or validate arbitrary return-stack corruption.

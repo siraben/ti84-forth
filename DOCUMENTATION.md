@@ -1,284 +1,115 @@
-# Forth Word Documentation
-All stack elements are 16-bit unsigned integers.
-## CODE words
-### EXIT ( -- )
-### DUP ( n -- n n )
-Duplicates the top element of the stack.
-### + ( a b -- a+b )
-Adds the top two elements of the stack.
-### - ( a b -- a-b )
-Subtracts the top element of the stack from the one immediately before
-it.
-### AND ( a b -- a&b )
-Bitwise `and` of the top two elements of the stack.
-### OR ( a b -- a||b )
-Bitwise `or` of the top two elements of the stack.
-### XOR ( a b -- a^b )
-Bitwise `xor` of the top two elements of the stack.
-### << ( a -- a<<1 )
-Left shift of the top element of the stack.
-### >> ( a -- a>>1 )
-Right shift of the top element of the stack.
-### INVERT
-### DROP ( a b -- a )
-Drop the top element of the stack.
-### SWAP ( a b -- b a )
-Swap the top two elements of the stack.
-### OVER ( a b -- a b a )
-Push the second-top element of the stack onto the top of the stack.
-### ROT
-### -ROT
-### 2DROP
-### 2DUP
-### 2SWAP
-### 1+ ( n -- n+1 )
-Increment the top element of the stack.
-### 1- ( n -- n-1 )
-Decrement the top element of the stack.
-### 2+ ( n -- n+2 )
-Increment the top element of the stack by 2.
-### 2- ( n -- n-2 )
-Decrement the top element of the stack by 2.
-### 4+ ( n -- n+4 )
-Increment the top element of the stack by 4.
-### 4- ( n -- n-4 )
-Decrement the top element of the stack by 4.
-### >R ( a -- )
-### R> ( -- a)
-### RDROP ( -- )
-### LIT
-### LITSTR
-### TELL
-### STRLEN
-### STRCHR
-### ! ( val addr -- )
-### @ ( addr -- val )
-### +!
-### -!
-### C!
-### C@
-### C@C!
-### CMOVE
-### EXECUTE
-### BASE
-### STATE
-### LATEST
-### SP0
-### [
-### ]
-### ?SE
-### HERE
-### DOCOL
-### BUF
-### BUFSZ
-### WBUF
-### WBUFSZ
-### RP0
-### H0
-### F_IMMED
-### F_HIDDEN
-### F_LENMASK
-### SCR
-### PLOTSS
-### '
-### ,
-### SP@
-### SP!
-### RP@
-### RP!
-### BRANCH
-### 0BRANCH
-### ?DUP
-### = ( n1 n2 -- b )
-### <> ( n1 n2 -- b )
-### >= ( n1 n2 -- b )
-### <= ( n1 n2 -- b )
-### < ( n1 n2 -- b )
-### > ( n1 n2 -- b )
-### 0= ( n1 -- b )
-### RAND ( -- n )
-### ASK
-### KEY
-### KEYC
-Non-blocking form of `KEY`.
-### EMIT ( a -- )
-Print the character with the ASCII code form the top of the stack.
-### . ( a -- )
-Pop the top element from the stack and print it.
-### ? ( addr -- )
-Print the value pointed to by `addr`.
-### AKEY ( -- a )
-Block until a key that corresponds to a printable ASCII character is
-given, then push that value onto the stack.
-### TO_ASCII ( a -- b )
-Convert a value given by `KEY` to the corresponding ASCII character code.
-### * ( a b -- a*b )
-Multiply the top two elements on the stack.
-### /MOD
-### CR
-Carriage return.
-### AT-XY
-### PUTS ( addr -- )
-Print a NUL-delimited string.
-### PUTLN ( addr -- )
-Print a NUL-delimited string followed by a carriage return.
-### GETS ( -- )
-Get characters from the user until `[ENTER]` is pressed, storing the
-result in the memory location`BUF`.
-### GETC ( -- a )
-Get the next character from `BUF`.
-### UNGETC ( -- )
-Unget the last character from `BUF`.
-### WORD ( -- addr len )
-Read a full, space-delimited word from `BUF` and push the address of
-`WBUF` followed by the length of the word onto the stack.
-### ?IMMED ( addr -- b )
-Given a pointer returned from `FIND`, return whether or not the word
-is marked `IMMEDIATE`.  Follows boolean convention.
-### IMMED ( -- )
-Mark the last word (or currently-being-defined word) as `IMMEDIATE`.
-### >NFA ( fptr -- addr )
-Given a `FIND`-returned pointer, return the address of the start of
-the word's name string.
-### >CFA ( fptr -- addr )
-Given a `FIND`-returned pointer, return the address of the start of
-the word's Code Field Address (CFA).
-### STR= ( addr1 addr2 -- b )
-Given two addresses of NUL-terminated string, check whether they are
-equal character-by-character.
-### FIND ( addr len -- fptr )
-Given the address of a word string and its length, return a `FIND`
-pointer to the word in the dictionary.  Return `0` if the word is not
-found.
-### WB
-Writeback the (possibly) modified contents from `data_start` to `data_end`.
-### CREATE
-### DOCOL_H
-Writes the three bytes corresponding to `call docol` to the memory
-location pointed to by `HERE`.
-### (DOES>)
-Created by `DOES>`, or can be called as well.  Sets the `call`
-destination of the `LATEST` word's Code Field Address to the address
-directly after `DOES>`, which is the instruction pointer at the time
-`DOES>` is invoked.  See `DOES>` for more information.
-### DOES>
-Used in words that can create new words.  See the following example:
-```forth
-: CONSTANT
-  WORD CREATE DOCOL_H ,
-  DOES> @
-;
-```
+# Forth word reference
 
-The word `CONSTANT` in the example reads a word, creates the link and
-name header, followed by three bytes corresponding to `call docol`,
-followed by the top element of the stack.  `DOES>` denotes the end of
-`CONSTANT`'s action and the start of the action of what the word
-__created by__ `CONSTANT` will do.  In other words, we can use it like
-this:
+Cells are 16-bit unsigned integers and addresses. Arithmetic wraps modulo
+65536. Booleans are `0` and `1`. Unless stated otherwise, behavior on stack
+underflow, division by zero, invalid addresses, or exhausted dictionary space
+is undefined.
 
-```forth
-31415 CONSTANT PI
-PI . \ => 31415
-```
-The words following `DOES>` are executed on the same stack, but with
-the top element of the stack begin the address of the word defined by
-`CONSTANT`'s children.  That's why we can just deference the pointer
-with `@` and thus get the constant value out.
+The implementation is intentionally small and is not a complete ANS Forth.
+Notable differences are called out below. `WORDS` is the authoritative live
+word list; commented-out assembly experiments are not part of the dictionary.
 
-What's happening is that `DOES>` is an immediate word that compiles
-`(DOES>)` followed by the 3 bytes representing `call dodoes` to the
-current word being defined (i.e. `CONSTANT`).  When `CONSTANT` is
-invoked, the invocation of `(DOES>)` sets the destination address of
-the `call` instruction in the _new_ word (whatever it may be) being
-defined (in this case, `PI`) to the byte _after_ `(DOES>)`, so that
-the new word starts its Code Field Address with `call XXXX`,
-where `XXXX` is the address after the location of `(DOES>)` in
-`CONSTANT`.  Then, `(DOES>)` acts like `EXIT`, resuming execution.
+## Stack and arithmetic
 
-This means you can share the same body code between words created by a
-word using `DOES>`, reducing wasted space.
+- `DUP ( a -- a a )`, `DROP ( a -- )`, `SWAP ( a b -- b a )`,
+  `OVER ( a b -- a b a )`, `ROT`, `-ROT`, `NIP`, and `TUCK` provide the usual
+  cell-stack operations.
+- `2DROP`, `2DUP`, `2SWAP`, and `2OVER` operate on cell pairs.
+- `+`, `-`, `1+`, `1-`, `2+`, `2-`, `*`, `NEGATE`, `AND`, `OR`, `XOR`, and
+  `INVERT` wrap to 16 bits. `<<` and `>>` shift by exactly one bit; they do not
+  consume a shift count.
+- `/MOD ( dividend divisor -- remainder quotient )`, `/`, and `MOD` are
+  unsigned. `SQRT` is an integer square root.
+- `=`, `<>`, `<`, `>`, `<=`, and `>=` are unsigned comparisons. `0=` tests for
+  zero. `WITHIN ( n low high -- flag )` is inclusive at both endpoints.
+- Double cells are written high cell first, low cell second. `UM* ( a b -- high
+  low )`, `D+ ( h1 l1 h2 l2 -- h l )`, `M+ ( high low n -- high low )`, `DS
+  ( high low u8 -- high low )`, and `D/MOD ( high low divisor -- remainder
+  quotient-high quotient-low )` use unsigned arithmetic.
 
-### PAGE
-Clear the screen.
-### HIDDEN
-### ?HIDDEN ( fptr -- b )
-Given a `FIND` pointer, return whether or not the word is hidden.
-### NIP ( a b -- b )
-### TUCK ( a b  -- b a b )
-Tucks the top element two locations prior.
-### '0'
-### '9'
-### I
-### SMIT ( freq dur --  )
-Sound emit.  Play the "frequency" with the duration.  The convention
-is that the lower the frequency number the higher it actually is in
-real life.
-### PLAY
-### PLOT ( -- )
-### GETP
-### DARKP
-### TOGP
-### LITP
-### PN
-### BYE
-Exit the program.
+`SP@`, `SP!`, `RP@`, `RP!`, `>R`, `R>`, `R@`, `2>R`, `2R>`, `RDROP`, and
+`2RDROP` expose the VM stacks directly. `DEPTH` reports parameter-stack depth;
+`.S` prints it without consuming it.
 
-## WORD Words
-### SQ
-### .Q
-### USED ( -- n )
-Returns how many bytes have been used (starting from `H0`).
-### SIMG
-### LIMG
-### >DFA
-### :
-### ;
-### MOD
-### /
-### NEGATE
-### TRUE
-### FALSE
-### NOT
-### LITERAL
-### ID.
-### HIDE
-### IF
-### THEN
-### ELSE
-### BEGIN
-### UNTIL
-### AGAIN
-### WHILE
-### REPEAT
-### CHAR
-### (COMP)
-### CONST
-### ALLOT
-### CELLS
-### RECURSE
-### VAR
-### DO
-### LOOP
-### +LOOP
-### FORGET
-### WITHIN
-### NUM?
-### NUM ( -- n )
-### CFA>
-### PICK
-### U. ( n -- )
-### UWIDTH
-### SPACES ( n -- )
-### U.R
-### U.
-### .
-### .S
-### SEE
-### WORDS
-### CASE
-### OF
-### ENDOF
-### ENDCASE
-### WR
-### STAR
+## Memory and strings
+
+- `! ( value address -- )`, `@ ( address -- value )`, `+!`, and `-!` access
+  cells. `C!` and `C@` access bytes. `C@C! ( source destination -- )` copies a
+  byte.
+- `CMOVE ( source destination count -- )` copies from low to high addresses;
+  it is overlap-safe when the destination is below the source. `CMOVE>` copies
+  high to low and is overlap-safe when the destination is above the source.
+  A zero count is a no-op for both.
+- `STRLEN`, `STRCHR`, `STR=`, `TELL`, `PUTS`, and `PUTLN` operate on
+  NUL-terminated byte strings.
+- `S"` parses a quoted string. In interpretation it returns `address length`;
+  during compilation it emits an inline string. `."` prints an inline quoted
+  string.
+- `BUF` names the 64-byte terminal buffer. `GETS` reads at most 63 characters
+  and NUL-terminates it. `GETC` returns the next byte and returns zero at the
+  end; `UNGETC` backs up the current input pointer by one byte.
+- `WORD ( -- address length )` skips spaces, tabs, newlines, and backslash
+  comments. Names are safely truncated to the dictionary's 31-character
+  header limit while the remainder of the token is consumed.
+
+## Terminal and display
+
+- `KEY` blocks in TI OS `_GetKey` and returns a cooked key code, including
+  2nd/ALPHA state. `KEYC` calls nonblocking `_GetCSC` and returns a raw scan
+  code. These number spaces are different.
+- `AKEY` blocks until a supported cooked key maps to ASCII. `TO_ASCII ( key --
+  character )` performs the same table lookup without reading a key.
+- The line editor recognizes both `kEnter` and `kAlphaEnter`. Left deletes,
+  right inserts a space, and CLEAR erases the current line. ENTER is echoed as
+  a space. `ok` appears when `WORD` exhausts its current input and requests a
+  new terminal line.
+- `EMIT`, `SPACE`, `SPACES`, `CR`, `PUTS`, and `PUTLN` use the OS large-font
+  text routines. `EMITS` uses the small-font routine. `AT-XY ( row column -- )`
+  sets `curRow`/`curCol`; `ATS-XY` sets the small-font pen coordinates.
+- `PAGE` clears the LCD. `INVTXT` toggles inverse text and `TOG-SCRL` toggles
+  scrolling. `PLOT` copies `plotSScreen` to the LCD.
+
+## Dictionary and compiler
+
+- `FIND ( address length -- header|0 )` searches the linked dictionary and
+  ignores hidden entries. `>NFA`, `>CFA`, `>DFA`, `CFA>`, `?IMMED`, and
+  `?HIDDEN` inspect headers.
+- `CREATE ( address length -- )` accepts names of 1 through 31 bytes. Invalid
+  direct calls are ignored. `:` and `;` define colon words; `IMMED`, `HIDDEN`,
+  `HIDE`, `LITERAL`, `RECURSE`, `DOES>`, and `(DOES>)` support defining words.
+- `HIDE name` and `FORGET name` are no-ops if the name is absent. `FORGET`
+  refuses to rewind into the built-in image below `H0`.
+- `,`, `C,`, `ALLOT`, `CELLS`, `HERE`, `LATEST`, `STATE`, `[` and `]` expose
+  compilation state. In this implementation `STATE=0` means compiling and
+  `STATE=1` means interpreting.
+- `IF`/`ELSE`/`THEN`, `BEGIN`/`UNTIL`/`AGAIN`/`WHILE`/`REPEAT`, and
+  `CASE`/`OF`/`ENDOF`/`ENDCASE` are immediate compile-time words.
+- `DO`/`LOOP` and `DO`/`+LOOP` use `I` and `J` for loop indices. `+LOOP`
+  finishes only when the updated index equals the limit; it does not implement
+  ANS boundary-crossing semantics.
+- `CONST` and `VAR` are defining words. `PICK`, `CHAR`, `'`, `EXECUTE`, `SEE`,
+  and `WORDS` provide the expected interactive facilities.
+- `PARSE-NUM ( nul-string -- n )` parses unsigned decimal modulo 65536 and sets
+  `NUMST` to `1` on success or `0` on failure. `NUM?` tests one ASCII decimal
+  digit. `HEX` and `DEC` affect numeric output; input remains decimal.
+
+## Storage, blocks, graphics, and exit
+
+- `SCR` is the start of the 350-byte persistent dictionary reservation. `USED`
+  reports bytes between `H0` and `HERE`. `WB`, `SIMG`, and `LIMG` save or load
+  the 354-byte data segment (350 data bytes plus saved `LATEST` and `HERE`).
+- `ABS` returns `appBackUpScreen` (`$9872`, 768 bytes). `PLOTSS` returns
+  `plotSScreen` (`$9340`, 768 bytes). `UALT` changes `HERE` to `ABS`; it does not
+  make that OS scratch region persistent.
+- `CBLK ( name length -- data|0 )` creates a 255-byte normal program and `FBLK
+  ( name length -- data|0 )` finds normal or protected programs resident in
+  RAM. Archived programs return `0`; unarchive them before `FBLK` or `LOAD`.
+  Names must contain 1 through 8 bytes. Returned addresses skip the program's
+  two-byte size field.
+- `RUN ( source -- )` switches the interpreter to a NUL-terminated source.
+  `LOAD name` combines `FBLK` and `RUN`; when source ends, the interpreter
+  refills from the keyboard.
+- `SMIT ( frequency duration -- )` drives the link port for sound. `PLOT`, `WR`,
+  `TELLS`, `CSCR`, and the coordinate/display words are calculator-specific.
+- `QUIT` resets the parameter stack and refills the terminal. `BYE` restores
+  the saved OS stack and returns to the caller.
