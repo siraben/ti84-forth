@@ -1,0 +1,75 @@
+\ Core emulator regression suite.  The result lives in AppBackupScreen:
+\   ABS @    = failure count
+\   ABS 2+ @ = $1234 when the suite reached the end
+
+0 ABS !
+0 ABS 2+ !
+
+: ASSERT 0= IF 1 ABS +! THEN ;
+
+0 0 = ASSERT
+1 2 <> ASSERT
+0 1- 1 > ASSERT
+1 << 2 = ASSERT
+2 >> 1 = ASSERT
+ABS @ ABS 4 + !
+
+1 2 3 4 2OVER
+2 = ASSERT 1 = ASSERT 4 = ASSERT 3 = ASSERT 2 = ASSERT 1 = ASSERT
+ABS @ ABS 6 + !
+
+0 0 1- 0 1 D+
+0 = ASSERT 1 = ASSERT
+ABS @ ABS 44 + !
+0 1- 2 UM*
+65534 = ASSERT 1 = ASSERT
+ABS @ ABS 46 + !
+0 10 3 D/MOD
+3 = ASSERT 0 = ASSERT 1 = ASSERT
+ABS @ ABS 48 + !
+0 0 1- 1 M+
+DUP ABS 54 + ! OVER ABS 56 + !
+0 = ASSERT 1 = ASSERT
+ABS @ ABS 50 + !
+0 0 1- 2 DS
+65534 = ASSERT 1 = ASSERT
+ABS @ ABS 52 + !
+ABS @ ABS 8 + !
+
+65 ABS 16 + C!
+66 ABS 17 + C!
+67 ABS 18 + C!
+68 ABS 19 + C!
+69 ABS 20 + C!
+ABS 16 + DUP 0 CMOVE
+ABS 16 + C@ 65 = ASSERT
+ABS 16 + ABS 18 + 3 CMOVE>
+ABS 18 + C@ 65 = ASSERT
+ABS 19 + C@ 66 = ASSERT
+ABS 20 + C@ 67 = ASSERT
+67 ABS 19 + C!
+68 ABS 20 + C!
+69 ABS 21 + C!
+ABS 19 + ABS 18 + 3 CMOVE
+ABS 18 + C@ 67 = ASSERT
+ABS 19 + C@ 68 = ASSERT
+ABS 20 + C@ 69 = ASSERT
+ABS @ ABS 10 + !
+
+65 ABS 32 + C!
+66 ABS 33 + C!
+0 ABS 34 + C!
+65 ABS 40 + C!
+66 ABS 41 + C!
+0 ABS 42 + C!
+ABS 32 + ABS 40 + STR= ASSERT
+
+0 SPACES
+1 ASSERT
+ABS @ ABS 12 + !
+
+: PL 0 10 0 DO I + 2 +LOOP ;
+PL 20 = ASSERT
+ABS @ ABS 14 + !
+
+4660 ABS 2+ !
