@@ -6,9 +6,10 @@
   - Contains over 200 words for everything from memory
   management to drawing pixels, decompilation, and even playing sounds
   over the I/O port.
-- Support for writeback (persistent data across program runs). Use
-  `SIMG` (save image) and `LIMG` (load image) to save the words you've
-  defined in a session.
+- A one-page Flash App build. The interpreter and built-in dictionary stay in
+  Flash while the user dictionary receives a dynamically sized RAM arena.
+- Checksummed, two-slot persistence in archived AppVars. `SIMG` saves the live
+  dictionary and `LIMG` reloads the newest valid copy.
 - Highly readable and customizable implementation, see `forth.asm`.
 
 ## Getting the interpreter
@@ -23,10 +24,13 @@ CI](https://github.com/siraben/ti84-forth/actions).
 - (Optional) A 2.5 mm to 3.5 mm audio cable to connect the I/O port
   with a speaker.
 
-Flash `forth.8xp` to your calculator. Make sure there's enough space
-and that you have backed up your calculator! An easy way to back up
-RAM contents is by creating a group, refer to the manual on how to do
-this.
+Transfer `forth.8xk` to your calculator and start `TI84FTH` from the APPS menu.
+The installer consumes one 16 KiB Flash page. Back up the calculator before
+installing development builds.
+
+The build also includes `forth.8xp`, the previous assembly-program packaging,
+for regression testing and older installations. It must be launched through
+`Asm(prgmFORTH)` and has a much smaller user dictionary.
 
 ## Why TI-84+?
 This is a calculator that is more or less ubiquitous among high school
@@ -63,6 +67,9 @@ and testing happened _on_ the calculator itself!
 ```sh
 nix build
 ```
+
+The result contains `forth.8xk` (the primary Flash App) and `forth.8xp` (the
+legacy assembly program). For an editable development shell, run `nix develop`.
 ### Mac/Linux
 - [spasm-ng Z80 assembler](https://github.com/alberthdev/spasm-ng)
   - If you're on a Mac, you will need to install `openssl` as a
@@ -75,23 +82,24 @@ ln -s ../opt/openssl/include/openssl .
   - Compile the assembler with `make` (check required packages for
     your system).
 
-Copy `forth.asm` into the cloned folder. Then run:
+From this repository, run:
 
 ```shell
-./spasm forth.asm forth.8xp
+make
 ```
 
 ### Emulated
-The implementation is regression-tested with headless TilEm and a TI-84 Plus
-OS 2.55MP ROM. ROM images are copyrighted and are not included. To launch the
-assembly payload correctly, load both `FORTH.8xp` and a BASIC wrapper whose
-body is `Asm(prgmFORTH)`; running the assembly variable as BASIC produces
-`ERR:SYNTAX`.
+The legacy implementation is regression-tested with headless TilEm and a
+TI-84 Plus OS 2.55MP ROM. ROM images are copyrighted and are not included. To
+launch `FORTH.8xp` correctly, load it with a BASIC wrapper whose body is
+`Asm(prgmFORTH)`; running the assembly variable as BASIC produces
+`ERR:SYNTAX`. The Flash App has a separate smoke macro described in
+[`tests/README.md`](tests/README.md).
 
 ## Using the Interpreter
-Run the program with `Asm(prgmFORTH)`, hit `2nd` then `ALPHA` to enter
-alpha lock mode, and now you can type the characters from `A-Z`. Here
-are a couple of things to keep in mind.
+Start `TI84FTH` from the APPS menu, hit `2nd` then `ALPHA` to enter alpha lock
+mode, and now you can type the characters from `A-Z`. Here are a couple of
+things to keep in mind.
 
 - Left and right arrows are bound to character delete and space insert
   respectively.
@@ -115,8 +123,8 @@ information on how to type the following characters: `[]{}"?:`.
 | Character | Key Sequence  |
 | :---:     | :---:         |
 | `;`       | `2nd .`       |
-| `!`       | `2nd PRGM`    |
-| `@`       | `2nd APPS`    |
+| `!`       | `STO▶`        |
+| `@`       | `2nd STO▶` (`RCL`) |
 | `=`       | `2nd MATH`    |
 | `'`       | `2nd +`       |
 | `<`       | `2nd X,T,Θ,n` |
@@ -197,28 +205,51 @@ track of the top element in the stack.
 
 ### Memory layout and persistence
 
-- The OS copies the assembly payload to `userMem` (`$9D95`). The current build
-  has `data_start=$BA3B` and `data_end=$BB9D`, leaving `$0463` (1,123) bytes
-  before `$C000`. That headroom is build-dependent and is not part of the
-  persistent 350-byte reservation. `$C000` is the execution-protection
-  boundary for the normal TI-84 Plus RAM mapping, not a claim that RAM ceases
-  to exist.
-- The parameter stack uses the OS stack. The return stack uses 294 bytes at
-  `$91DC..$9301`, immediately below `plotSScreen`; this is OS scratch workspace
-  and is safe only while the assembly program owns the machine.
-- `SCR`/`HERE` starts at `data_start`. Exactly 350 bytes are reserved for user
-  dictionary data, followed by the two-byte saved `LATEST` and two-byte saved
-  `HERE` fields. Consequently `WB`, `SIMG`, and `LIMG` persist 354 bytes—not
-  400. Dictionary-space exhaustion is not currently checked.
-- `ABS` is `appBackUpScreen` (`$9872`, 768 bytes), `PLOTSS` is
-  `plotSScreen` (`$9340`, 768 bytes), and `UALT` redirects `HERE` to
-  `appBackUpScreen`. These regions are OS scratch buffers, not permanent
-  storage.
+- App code and the built-in dictionary execute from the `$4000..$7FFF` Flash
+  window. The current raw page uses about 8.5 KiB, leaving about 7.5 KiB for
+  future built-ins without consuming user RAM.
+- At launch, the App inserts a fixed arena at `userMem` (`$9D95`). Its first
+  640 bytes contain VM state, buffers, a 294-byte return stack, and a 128-byte
+  `ABS` scratch area. The user dictionary begins at `$A015`.
+- Dictionary capacity is `min($4000, (MemChk - 736) / 2)`, with a 512-byte
+  minimum. Keeping roughly half of free RAM unallocated lets the App create a
+  complete replacement snapshot while the live dictionary still exists. In
+  the measured clean OS 2.55MP state, `_MemChk` returned `$5C44`, producing
+  `$2CB2` (11,442) bytes of effective `HERE` storage—over 32 times the legacy
+  350-byte reservation. Other variables and shells reduce this value. Use
+  `CAPACITY`, `USED`, and `AVAILABLE` to inspect the current run.
+- User colon and `DOES>` words remain threaded data. The App dispatcher
+  interprets their RAM records instead of asking the CPU to execute above the
+  normal `$C000` RAM-execution boundary. This is why the dictionary may safely
+  extend past `$C000` while the calculator's execution protection stays on.
+- The multi-step `:`, `CONST`, and `VAR` paths record the previous `HERE` and
+  `LATEST` before emitting a header. If compilation exhausts the arena or
+  saving encounters an unfinished definition, the App rolls that partial
+  definition back instead of persisting a malformed dictionary.
+- `SIMG`, `WB`, normal `BYE`, and TI-OS put-away save to the inactive one of
+  `FTHSAVA` and `FTHSAVB`. Each image carries a format version, generation,
+  used length, `LATEST`, CRC16-CCITT, and commit marker. The replacement is
+  archived before it becomes active; the prior archived slot remains as a
+  recovery copy. A system error deliberately exits without overwriting the
+  last valid image.
+- In App mode, `ABS` is private arena scratch and `UALT` is a compatibility
+  no-op. `PLOTSS` still names TI-OS `plotSScreen`.
 
-The active OS calls are standard TI-83+/84+ bcalls: `_GetKey`, `_GetCSC`,
-`_PutC`, `_PutS`, `_NewLine`, `_ClrLCDFull`, `_ChkFindSym`, `_CreateProg`, and
-the writeback/variable routines. Their equates match the TI-84 Plus include
-tables and were dynamically exercised on OS 2.55MP.
+The allocation strategy follows TI-OS's documented `_EnoughMem`, `_InsertMem`,
+and `_DelMem` arena protocol. The App lifecycle and archived-variable handling
+were cross-checked against mature local Flash App sources, particularly
+RPN83P; its MIT-licensed CRC routine is credited in the source.
+
+The legacy `.8xp` retains its old layout: a 350-byte persistent dictionary,
+294-byte return stack in OS scratch RAM, and `ABS`/`UALT` access to
+`appBackUpScreen`.
+
+The legacy interpreter paths were dynamically exercised on OS 2.55MP. The App
+was also launched through the TI-OS APPS menu on that OS, then exercised through
+a create, execute, explicit save, normal exit, cold relaunch, restore, and
+execute cycle. The ROM-dependent macro remains a separate manual test because
+the repository cannot distribute a ROM or a deterministic App-transfer runner;
+its provenance and expected artifacts are in [`tests/README.md`](tests/README.md).
 
 ### Reading List
 Documentation can vary from very well-documented to resorting to
@@ -236,8 +267,8 @@ writing it out manually.
 
 ## To be Implemented
 - [x] Ability to read/write programs
-  - [x] `WB` word to write back the 354-byte persistent data segment
-         bytes of data starting from the address of `SCRATCH`.
+  - [x] `WB` word to snapshot the active App dictionary. The legacy `.8xp`
+        writes back its fixed 354-byte data segment.
   - [x] Ability to "execute" strings (so that programs can be
         interpreted).
 - [x] User input
@@ -269,9 +300,10 @@ pasted into the program.
 
 ## Current Limitations
 
-- Dictionary allocation has no bounds check. The reserved persistent scratch
-  area is 350 bytes and the current image has additional headroom before
-  `$C000`, but compiled threaded code must remain below the protected boundary.
+- Flash App dictionary writers reject growth past `CAPACITY`; corrupt persisted
+  headers, checksums, execution tokens, and `DOES>` trampolines reset to a cold
+  dictionary. Raw memory words remain intentionally unsafe. The legacy `.8xp`
+  retains its fixed 350-byte dictionary and has no exhaustion check.
 - Comparisons and division are unsigned. `WITHIN` includes both endpoints, and
   `+LOOP` terminates on equality rather than standard boundary crossing.
 - `QUIT` resets the parameter stack and resumes the terminal; it does not

@@ -1,0 +1,61 @@
+set key_hold 0.15s
+set key_delay 0.08s
+# A clean OS 2.55MP image has Finance first and TI84FTH second.  Run this
+# macro after the App transfer has completed.
+wait 4s
+key ON
+wait 3s
+key ENTER
+wait 1.5s
+key CLEAR
+key APPS
+wait 2s
+key 2
+wait 5s
+
+# Define a word without relying on TilEm's per-character `type` modifier
+# timing: enter alpha lock once, and let `scanstring` press letter keys.
+key 4
+key 2
+key RIGHT
+key 2ND
+key ALPHA
+scanstring "CONST"
+key RIGHT
+scanstring "ANSWER"
+key ENTER
+wait 2s
+
+# The same word must execute before and after the archived two-slot save.
+scanstring "ANSWER"
+key RIGHT
+key ALPHA
+key DECPNT
+key ENTER
+wait 2s
+key 2ND
+key ALPHA
+scanstring "SIMG"
+key ENTER
+wait 5s
+scanstring "BYE"
+key ENTER
+wait 1s
+key ENTER
+wait 4s
+key APPS
+wait 2s
+key 2
+wait 5s
+
+key 2ND
+key ALPHA
+scanstring "ANSWER"
+key RIGHT
+key ALPHA
+key DECPNT
+key ENTER
+wait 3s
+screenshot /tmp/ti84forth-app-smoke.png
+memdump /tmp/ti84forth-app-smoke.ram ram-logical
+memdump /tmp/ti84forth-app-smoke.rom rom

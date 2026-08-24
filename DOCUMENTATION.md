@@ -2,8 +2,8 @@
 
 Cells are 16-bit unsigned integers and addresses. Arithmetic wraps modulo
 65536. Booleans are `0` and `1`. Unless stated otherwise, behavior on stack
-underflow, division by zero, invalid addresses, or exhausted dictionary space
-is undefined.
+underflow, division by zero, or invalid addresses is undefined. The Flash App
+checks dictionary growth; the legacy assembly program does not.
 
 The implementation is intentionally small and is not a complete ANS Forth.
 Notable differences are called out below. `WORDS` is the authoritative live
@@ -63,6 +63,9 @@ word list; commented-out assembly experiments are not part of the dictionary.
   right inserts a space, and CLEAR erases the current line. ENTER is echoed as
   a space. `ok` appears when `WORD` exhausts its current input and requests a
   new terminal line.
+- The direct `STO▶` key types `!`; `2nd` then `STO▶` (`RCL`) types `@`.
+  TI-OS opens menus for `2nd PRGM` and `2nd APPS` before the Forth terminal can
+  consume those chords, so they are not punctuation bindings.
 - `EMIT`, `SPACE`, `SPACES`, `CR`, `PUTS`, and `PUTLN` use the OS large-font
   text routines. `EMITS` uses the small-font routine. `AT-XY ( row column -- )`
   sets `curRow`/`curCol`; `ATS-XY` sets the small-font pen coordinates.
@@ -81,7 +84,8 @@ word list; commented-out assembly experiments are not part of the dictionary.
   refuses to rewind into the built-in image below `H0`.
 - `,`, `C,`, `ALLOT`, `CELLS`, `HERE`, `LATEST`, `STATE`, `[` and `]` expose
   compilation state. In this implementation `STATE=0` means compiling and
-  `STATE=1` means interpreting.
+  `STATE=1` means interpreting. In App mode, positive growth is bounds-checked
+  and negative `ALLOT` cannot move below `H0`.
 - `IF`/`ELSE`/`THEN`, `BEGIN`/`UNTIL`/`AGAIN`/`WHILE`/`REPEAT`, and
   `CASE`/`OF`/`ENDOF`/`ENDCASE` are immediate compile-time words.
 - `DO`/`LOOP` and `DO`/`+LOOP` use `I` and `J` for loop indices. `+LOOP`
@@ -95,12 +99,22 @@ word list; commented-out assembly experiments are not part of the dictionary.
 
 ## Storage, blocks, graphics, and exit
 
-- `SCR` is the start of the 350-byte persistent dictionary reservation. `USED`
-  reports bytes between `H0` and `HERE`. `WB`, `SIMG`, and `LIMG` save or load
-  the 354-byte data segment (350 data bytes plus saved `LATEST` and `HERE`).
-- `ABS` returns `appBackUpScreen` (`$9872`, 768 bytes). `PLOTSS` returns
-  `plotSScreen` (`$9340`, 768 bytes). `UALT` changes `HERE` to `ABS`; it does not
-  make that OS scratch region persistent.
+- In the Flash App, `SCR` and `H0` are the beginning of the dynamically sized
+  user dictionary at `$A015`. `CAPACITY` reports its total byte capacity,
+  `USED` reports `HERE-H0`, and `AVAILABLE` reports `CAPACITY-USED`. On the
+  measured clean OS 2.55MP state, `CAPACITY` is 11,442 bytes; it varies with
+  free RAM at launch and is capped at 16 KiB.
+- In the Flash App, `WB` and `SIMG` write a CRC-protected generation to the
+  inactive `FTHSAVA`/`FTHSAVB` AppVar and archive it. `LIMG` selects the newest
+  structurally valid, checksum-valid generation and resets the terminal around
+  it. `BYE` and TI-OS put-away save automatically. A system error does not
+  replace the last valid snapshot.
+- In the Flash App, `ABS` returns a private 128-byte arena scratch area and
+  `UALT` is a compatibility no-op. In the legacy `.8xp`, `ABS` returns
+  `appBackUpScreen` (`$9872`, 768 bytes), `UALT` changes `HERE` to that OS
+  scratch region, and `WB`/`SIMG`/`LIMG` operate on the fixed 354-byte data
+  segment (350 dictionary bytes plus saved `LATEST` and `HERE`).
+- `PLOTSS` returns `plotSScreen` (`$9340`, 768 bytes) in both builds.
 - `CBLK ( name length -- data|0 )` creates a 255-byte normal program and `FBLK
   ( name length -- data|0 )` finds normal or protected programs resident in
   RAM. Archived programs return `0`; unarchive them before `FBLK` or `LOAD`.
