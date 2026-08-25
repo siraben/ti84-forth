@@ -9,10 +9,15 @@ jobs:
     - uses: actions/checkout@v4.1.6
     - uses: cachix/install-nix-action@v15
     - run: nix --experimental-features 'nix-command flakes' build -L
-    - name: "Copy ti84-forth"
-      run: cp result/forth.8xp .
-    - name: "Upload artifact to github"
+    - name: "Copy TI-84 Forth artifacts"
+      run: cp result/forth.8xk result/forth.8xp .
+    - name: "Upload Flash App"
       uses: actions/upload-artifact@v4.3.3
       with:
-        name: forth.8xp
+        name: forth-flash-app
+        path: forth.8xk
+    - name: "Upload legacy assembly program"
+      uses: actions/upload-artifact@v4.3.3
+      with:
+        name: forth-legacy-program
         path: forth.8xp
